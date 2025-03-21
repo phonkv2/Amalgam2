@@ -46,6 +46,7 @@ void CCore::Load()
 
 
 	SDK::Output("Amalgam", "Loaded", { 175, 150, 255, 255 }, true, false, false, true);
+	SDK::Output("Loaded", nullptr, {}, false, false, true, false);
 }
 
 void CCore::Loop()

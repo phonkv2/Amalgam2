@@ -38,60 +38,51 @@ void CVisuals::DrawFOV(CTFPlayer* pLocal)
 
 void CVisuals::DrawTicks(CTFPlayer* pLocal)
 {
-	// Check if the Ticks indicator is enabled in the menu
 	if (!(Vars::Menu::Indicators.Value & Vars::Menu::IndicatorsEnum::Ticks))
 		return;
 
-	// Check if the player is alive
 	if (!pLocal->IsAlive())
 		return;
 
-	// Get the position and font for drawing
 	const DragBox_t dtPos = Vars::Menu::TicksDisplay.Value;
 	const auto& fFont = H::Fonts.GetFont(FONT_INDICATORS);
 
-	// Calculate the ticks and progress ratio using new logic
-	int iChoke = std::max(I::ClientState->chokedcommands - (F::AntiAim.YawOn() ? F::AntiAim.AntiAimTicks() : 0), 0);
-	int iTicks = std::clamp(F::Ticks.m_iShiftedTicks + iChoke, 0, F::Ticks.m_iMaxShift);
-	float flRatio = float(iTicks) / F::Ticks.m_iMaxShift;
-
-	// Dimensions for the progress bar
-	int iSizeX = H::Draw.Scale(100, Scale_Round);  // Width
-	int iSizeY = H::Draw.Scale(13, Scale_Round);   // Height
-	int iPosX = dtPos.x - iSizeX / 2;              // Centered X position
-	int iPosY = dtPos.y + fFont.m_nTall + H::Draw.Scale(4); // Adjusted Y position
-
-	// Rounded corner radius
-	int cornerRadius = H::Draw.Scale(5, Scale_Round);
-
-	// Draw tick count text
-	H::Draw.String(fFont, dtPos.x, dtPos.y + 2,
-		Vars::Menu::Theme::Active.Value, ALIGN_TOP,
-		std::format("Ticks {} / {}", iTicks, F::Ticks.m_iMaxShift).c_str());
-
-	// Display "Not Ready" if waiting for shift
-	if (F::Ticks.m_iWait)
+	if (!F::Ticks.m_bSpeedhack)
 	{
-		H::Draw.String(fFont, dtPos.x, dtPos.y + fFont.m_nTall + H::Draw.Scale(18, Scale_Round),
-			Vars::Menu::Theme::Active.Value, ALIGN_TOP, "Not Ready");
+		int iChoke = std::max(I::ClientState->chokedcommands - (F::AntiAim.YawOn() ? F::AntiAim.AntiAimTicks() : 0), 0);
+		int iTicks = std::clamp(F::Ticks.m_iShiftedTicks + iChoke, 0, F::Ticks.m_iMaxShift);
+		float flRatio = float(iTicks) / F::Ticks.m_iMaxShift;
+		int iSizeX = H::Draw.Scale(90, Scale_Round), iSizeY = H::Draw.Scale(7, Scale_Round); // Narrower (width reduced to 90) and slightly thicker (height increased to 7)
+		int iPosX = dtPos.x - iSizeX / 2, iPosY = dtPos.y + fFont.m_nTall + H::Draw.Scale(4) + 1;
+
+		// Draw tick count text
+		H::Draw.String(fFont, dtPos.x, dtPos.y + 2, Vars::Menu::Theme::Active.Value, ALIGN_TOP, std::format("{} / {}", iTicks, F::Ticks.m_iMaxShift).c_str());
+
+		// Draw the black outline of the progress bar (1 pixel thick)
+		// Adjust the outline to be 1 pixel above and to the left of the progress bar
+		H::Draw.Line(iPosX - 1, iPosY - 1, iPosX + iSizeX, iPosY - 1, Color_t(0, 0, 0, 255)); // Top line (1 pixel above)
+		H::Draw.Line(iPosX + iSizeX, iPosY - 1, iPosX + iSizeX, iPosY + iSizeY, Color_t(0, 0, 0, 255)); // Right line
+		H::Draw.Line(iPosX + iSizeX, iPosY + iSizeY, iPosX - 1, iPosY + iSizeY, Color_t(0, 0, 0, 255)); // Bottom line
+		H::Draw.Line(iPosX - 1, iPosY + iSizeY, iPosX - 1, iPosY - 1, Color_t(0, 0, 0, 255)); // Left line (1 pixel to the left)
+
+		// Draw the progress bar based on ratio
+		if (flRatio > 0.0f)
+		{
+			int progressSizeX = iSizeX * flRatio; // Progress bar width based on ratio
+			int progressSizeY = iSizeY;          // Progress bar height matches the outline
+
+			// Draw the progress bar inside the outline
+			H::Draw.FillRect(iPosX, iPosY, progressSizeX, progressSizeY, Vars::Menu::Theme::Accent.Value); // Squared progress bar
+		}
 	}
-
-	// Draw the background of the progress bar
-	/*H::Draw.FillRoundRect( iPosX, iPosY, iSizeX, iSizeY, cornerRadius, Vars::Menu::Theme::Background.Value );
-
-	// Draw the progress bar based on ratio
-	if (flRatio > 0.0f)
+	else
 	{
-		int progressSizeX = iSizeX - H::Draw.Scale(4, Scale_Round);
-		int progressSizeY = iSizeY - H::Draw.Scale(4, Scale_Round);
-		int progressPosX = iPosX + H::Draw.Scale(2, Scale_Round);
-		int progressPosY = iPosY + H::Draw.Scale(2, Scale_Round);
-
-		H::Draw.FillRoundRect(progressPosX, progressPosY, progressSizeX * flRatio, progressSizeY, cornerRadius, Vars::Menu::Theme::Accent.Value);
-	}*/
+		// Draw speedhack text
+		H::Draw.String(fFont, dtPos.x, dtPos.y + 2, Vars::Menu::Theme::Active.Value, ALIGN_TOP, std::format("Speedhack x{}", Vars::CL_Move::SpeedFactor.Value).c_str());
+	}
 }
 
-void CVisuals::DrawTickbaseBars( )
+/*void CVisuals::DrawTickbaseBars()
 {
 	if ( !( Vars::Menu::Indicators.Value & Vars::Menu::IndicatorsEnum::Ticks ) || I::EngineVGui->IsGameUIVisible( ) )
 		return;
@@ -122,7 +113,7 @@ void CVisuals::DrawTickbaseBars( )
 		);
 		ImGui::GetBackgroundDrawList( )->PopClipRect( );
 	}
-}
+}*/
 
 void CVisuals::DrawPing(CTFPlayer* pLocal)
 {
@@ -136,11 +127,11 @@ void CVisuals::DrawPing(CTFPlayer* pLocal)
 
 	static float flFakeLatency = 0.f;
 	{
-		static Timer updateTimer{};
-		if (updateTimer.Run(500))
+		static Timer tTimer = {};
+		if (tTimer.Run(0.5f))
 			flFakeLatency = F::Backtrack.m_flFakeLatency;
 	}
-	float flFakeLerp = F::Backtrack.m_flFakeInterp > G::Lerp ? F::Backtrack.m_flFakeInterp : 0.f;
+	float flFakeLerp = F::Backtrack.GetFakeInterp() > G::Lerp ? F::Backtrack.GetFakeInterp() : 0.f;
 
 	float flFake = std::min(flFakeLatency + flFakeLerp, F::Backtrack.m_flMaxUnlag) * 1000.f;
 	float flLatency = std::max(pNetChan->GetLatency(FLOW_INCOMING) + pNetChan->GetLatency(FLOW_OUTGOING) - flFakeLatency, 0.f) * 1000.f;
@@ -336,9 +327,9 @@ void CVisuals::ProjectileTrace(CTFPlayer* pPlayer, CTFWeaponBase* pWeapon, const
 	{
 		G::PathStorage.clear();
 		if (Vars::Colors::ShotPath.Value.a)
-			G::PathStorage.push_back({ projInfo.m_vPath, -float(projInfo.m_vPath.size()) - TIME_TO_TICKS(F::Backtrack.GetReal()), Vars::Colors::ShotPath.Value, Vars::Visuals::Simulation::ShotPath.Value });
+			G::PathStorage.emplace_back(projInfo.m_vPath, -float(projInfo.m_vPath.size()) - TIME_TO_TICKS(F::Backtrack.GetReal()), Vars::Colors::ShotPath.Value, Vars::Visuals::Simulation::ShotPath.Value);
 		if (Vars::Colors::ShotPathClipped.Value.a)
-			G::PathStorage.push_back({ projInfo.m_vPath, -float(projInfo.m_vPath.size()) - TIME_TO_TICKS(F::Backtrack.GetReal()), Vars::Colors::ShotPathClipped.Value, Vars::Visuals::Simulation::ShotPath.Value, true });
+			G::PathStorage.emplace_back(projInfo.m_vPath, -float(projInfo.m_vPath.size()) - TIME_TO_TICKS(F::Backtrack.GetReal()), Vars::Colors::ShotPathClipped.Value, Vars::Visuals::Simulation::ShotPath.Value, true);
 
 		if (Vars::Visuals::Simulation::Box.Value && pNormal)
 		{
@@ -349,17 +340,17 @@ void CVisuals::ProjectileTrace(CTFPlayer* pPlayer, CTFWeaponBase* pWeapon, const
 			if (Vars::Colors::ShotPath.Value.a || Vars::Colors::TrajectoryPathClipped.Value.a)
 				G::BoxStorage.clear();
 			if (Vars::Colors::ShotPath.Value.a)
-				G::BoxStorage.push_back({ trace.endpos, vSize * -1, vSize, vAngles, I::GlobalVars->curtime + TICKS_TO_TIME(projInfo.m_vPath.size()) + F::Backtrack.GetReal(), Vars::Colors::ShotPath.Value, { 0, 0, 0, 0 } });
+				G::BoxStorage.emplace_back(trace.endpos, vSize * -1, vSize, vAngles, I::GlobalVars->curtime + TICKS_TO_TIME(projInfo.m_vPath.size()) + F::Backtrack.GetReal(), Vars::Colors::ShotPath.Value, Color_t(0, 0, 0, 0));
 			if (Vars::Colors::ShotPathClipped.Value.a)
-				G::BoxStorage.push_back({ trace.endpos, vSize * -1, vSize, vAngles, I::GlobalVars->curtime + TICKS_TO_TIME(projInfo.m_vPath.size()) + F::Backtrack.GetReal(), Vars::Colors::ShotPathClipped.Value, { 0, 0, 0, 0 }, true });
+				G::BoxStorage.emplace_back(trace.endpos, vSize * -1, vSize, vAngles, I::GlobalVars->curtime + TICKS_TO_TIME(projInfo.m_vPath.size()) + F::Backtrack.GetReal(), Vars::Colors::ShotPathClipped.Value, Color_t(0, 0, 0, 0), true);
 		}
 
 		if (!vPoints.empty())
 		{
 			if (Vars::Colors::SplashRadius.Value.a)
-				G::PathStorage.push_back({ vPoints, I::GlobalVars->curtime + TICKS_TO_TIME(projInfo.m_vPath.size()) + F::Backtrack.GetReal(), Vars::Colors::SplashRadius.Value, Vars::Visuals::Simulation::StyleEnum::Line });
+				G::PathStorage.emplace_back(vPoints, I::GlobalVars->curtime + TICKS_TO_TIME(projInfo.m_vPath.size()) + F::Backtrack.GetReal(), Vars::Colors::SplashRadius.Value, Vars::Visuals::Simulation::StyleEnum::Line);
 			if (Vars::Colors::SplashRadiusClipped.Value.a)
-				G::PathStorage.push_back({ vPoints, I::GlobalVars->curtime + TICKS_TO_TIME(projInfo.m_vPath.size()) + F::Backtrack.GetReal(), Vars::Colors::SplashRadiusClipped.Value, Vars::Visuals::Simulation::StyleEnum::Line, true });
+				G::PathStorage.emplace_back(vPoints, I::GlobalVars->curtime + TICKS_TO_TIME(projInfo.m_vPath.size()) + F::Backtrack.GetReal(), Vars::Colors::SplashRadiusClipped.Value, Vars::Visuals::Simulation::StyleEnum::Line, true);
 		}
 	}
 }
@@ -627,12 +618,12 @@ std::vector<DrawBox> CVisuals::GetHitboxes(matrix3x4 aBones[MAXSTUDIOBONES], CBa
 		Color_t tEdge = bTargeted ? Vars::Colors::TargetHitboxEdge.Value : Vars::Colors::BoneHitboxEdge.Value;
 		Color_t tFace = bTargeted ? Vars::Colors::TargetHitboxFace.Value : Vars::Colors::BoneHitboxFace.Value;
 		if (tEdge.a || tFace.a)
-			vBoxes.push_back({ vOrigin, vMins, vMaxs, vAngle, I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, tEdge, tFace });
+			vBoxes.emplace_back(vOrigin, vMins, vMaxs, vAngle, I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, tEdge, tFace);
 
 		tEdge = bTargeted ? Vars::Colors::TargetHitboxEdgeClipped.Value : Vars::Colors::BoneHitboxEdgeClipped.Value;
 		tFace = bTargeted ? Vars::Colors::TargetHitboxFaceClipped.Value : Vars::Colors::BoneHitboxFaceClipped.Value;
 		if (tEdge.a || tFace.a)
-			vBoxes.push_back({ vOrigin, vMins, vMaxs, vAngle, I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, tEdge, tFace, true });
+			vBoxes.emplace_back(vOrigin, vMins, vMaxs, vAngle, I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, tEdge, tFace, true);
 
 		if (Vars::Debug::Info.Value)
 		{
@@ -645,12 +636,12 @@ std::vector<DrawBox> CVisuals::GetHitboxes(matrix3x4 aBones[MAXSTUDIOBONES], CBa
 			Color_t tEdge = bTargeted ? Vars::Colors::TargetHitboxEdge.Value : Vars::Colors::BoneHitboxEdge.Value;
 			Color_t tFace = bTargeted ? Vars::Colors::TargetHitboxFace.Value : Vars::Colors::BoneHitboxFace.Value;
 			if (tEdge.a || tFace.a)
-				vBoxes.push_back({ vOrigin, vCheckMins, vCheckMaxs, vAngle, I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, tEdge, tFace });
+				vBoxes.emplace_back(vOrigin, vCheckMins, vCheckMaxs, vAngle, I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, tEdge, tFace);
 
 			tEdge = bTargeted ? Vars::Colors::TargetHitboxEdgeClipped.Value : Vars::Colors::BoneHitboxEdgeClipped.Value;
 			tFace = bTargeted ? Vars::Colors::TargetHitboxFaceClipped.Value : Vars::Colors::BoneHitboxFaceClipped.Value;
 			if (tEdge.a || tFace.a)
-				vBoxes.push_back({ vOrigin, vCheckMins, vCheckMaxs, vAngle, I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, tEdge, tFace, true });
+				vBoxes.emplace_back(vOrigin, vCheckMins, vCheckMaxs, vAngle, I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, tEdge, tFace, true);
 		}
 	}
 
@@ -694,23 +685,7 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 			break;
 		}
 
-		case Vars::Visuals::Simulation::StyleEnum::GreenBox:
-		{
-			// Draw the lines connecting the points
-			RenderLine(Line[i - 1], Line[i], Color, bZBuffer);
-
-			// Check if this is the last point in the path
-			if (i == Line.size() - 1)
-			{
-				// Define the color as 100% green (RGBA format: R=0, G=255, B=0, A=255)
-				Color_t greenColor = { 0, 255, 0, 255 };
-
-				// Render the box at the last point
-				RenderBox(Line[i], { -2, -2, -2 }, { 2, 2, 2 }, {}, greenColor, { 0, 0, 0, 0 }, bZBuffer);
-			}
-			break;
-		}
-		/*case Vars::Visuals::Simulation::StyleEnum::SeparatorsWIP:
+		case Vars::Visuals::Simulation::StyleEnum::Nitro:
 		{
 			RenderLine(Line[i - 1], Line[i], Color, bZBuffer);
 
@@ -811,7 +786,7 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 				}
 			}
 			break;
-		}*/
+		}
 
 		case Vars::Visuals::Simulation::StyleEnum::Spaced:
 		{
@@ -915,8 +890,7 @@ void CVisuals::DrawServerHitboxes(CTFPlayer* pLocal)
 
 	if (I::Input->CAM_IsThirdPerson() && pLocal->IsAlive())
 	{
-		auto pServerAnimating = S::GetServerAnimating.Call<void*>(pLocal->entindex());
-		if (pServerAnimating)
+		if (auto pServerAnimating = S::GetServerAnimating.Call<void*>(pLocal->entindex()))
 			S::CBaseAnimating_DrawServerHitboxes.Call<void>(pServerAnimating, 0.f, true);
 	}
 
@@ -926,8 +900,7 @@ void CVisuals::DrawServerHitboxes(CTFPlayer* pLocal)
 		if (pPlayer->entindex() == I::EngineClient->GetLocalPlayer() || !pPlayer->IsAlive())
 			continue;
 
-		auto pServerAnimating = S::GetServerAnimating.Call<void*>(pPlayer->entindex());
-		if (pServerAnimating)
+		if (auto pServerAnimating = S::GetServerAnimating.Call<void*>(pPlayer->entindex()))
 			S::CBaseAnimating_DrawServerHitboxes.Call<void>(pServerAnimating, 0.f, true);
 	}
 }
@@ -1011,20 +984,18 @@ void CVisuals::ThirdPerson(CTFPlayer* pLocal, CViewSetup* pView)
 
 void CVisuals::DrawSightlines()
 {
-	if (Vars::Visuals::UI::SniperSightlines.Value)
-	{
-		for (auto& tSightline : m_vSightLines)
-			RenderLine(tSightline.m_vStart, tSightline.m_vEnd, tSightline.m_Color);
-	}
+	for (auto& tSightline : m_vSightLines)
+		RenderLine(tSightline.m_vStart, tSightline.m_vEnd, tSightline.m_Color);
 }
 
-void CVisuals::Store()
+void CVisuals::Store(CTFPlayer* pLocal)
 {
-	auto pLocal = H::Entities.GetLocal();
-	if (Vars::Visuals::UI::SniperSightlines.Value && pLocal)
-	{
-		m_vSightLines.clear();
+	if (!pLocal)
+		return;
 
+	m_vSightLines.clear();
+	if (Vars::Visuals::UI::SniperSightlines.Value)
+	{
 		std::unordered_map<IClientEntity*, Vec3> mDots = {};
 		for (auto pEntity : H::Entities.GetGroup(EGroupType::MISC_DOTS))
 		{
@@ -1051,7 +1022,7 @@ void CVisuals::Store()
 			CTraceFilterHitscan filter = {}; filter.pSkip = pPlayer;
 			SDK::Trace(vShootPos, vShootEnd, MASK_SHOT, &filter, &trace);
 
-			m_vSightLines.push_back({ vShootPos, trace.endpos, H::Color.GetEntityDrawColor(pLocal, pPlayer, Vars::Colors::Relative.Value) });
+			m_vSightLines.emplace_back(vShootPos, trace.endpos, H::Color.GetEntityDrawColor(pLocal, pPlayer, Vars::Colors::Relative.Value));
 		}
 	}
 }
@@ -1097,7 +1068,7 @@ void CVisuals::Event(IGameEvent* pEvent, uint32_t uHash)
 		if (I::EngineClient->GetPlayerForUserID(pEvent->GetInt("attacker")) != I::EngineClient->GetLocalPlayer())
 			return;
 
-		const int iVictim = I::EngineClient->GetPlayerForUserID(pEvent->GetInt("userid"));
+		int iVictim = I::EngineClient->GetPlayerForUserID(pEvent->GetInt("userid"));
 		auto pEntity = I::ClientEntityList->GetClientEntity(iVictim)->As<CBaseAnimating>();
 		if (!pEntity || iVictim == I::EngineClient->GetLocalPlayer())
 			return;
@@ -1125,9 +1096,9 @@ void CVisuals::Event(IGameEvent* pEvent, uint32_t uHash)
 				break;
 
 			if (Vars::Colors::BoundHitboxEdge.Value.a || Vars::Colors::BoundHitboxFace.Value.a)
-				G::BoxStorage.push_back({ pEntity->m_vecOrigin(), pEntity->m_vecMins(), pEntity->m_vecMaxs(), Vec3(), I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, Vars::Colors::BoundHitboxEdge.Value, Vars::Colors::BoundHitboxFace.Value, true });
+				G::BoxStorage.emplace_back(pEntity->m_vecOrigin(), pEntity->m_vecMins(), pEntity->m_vecMaxs(), Vec3(), I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, Vars::Colors::BoundHitboxEdge.Value, Vars::Colors::BoundHitboxFace.Value, true);
 			if (Vars::Colors::BoundHitboxEdgeClipped.Value.a || Vars::Colors::BoundHitboxFaceClipped.Value.a)
-				G::BoxStorage.push_back({ pEntity->m_vecOrigin(), pEntity->m_vecMins(), pEntity->m_vecMaxs(), Vec3(), I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, Vars::Colors::BoundHitboxEdgeClipped.Value, Vars::Colors::BoundHitboxFaceClipped.Value, true });
+				G::BoxStorage.emplace_back(pEntity->m_vecOrigin(), pEntity->m_vecMins(), pEntity->m_vecMaxs(), Vec3(), I::GlobalVars->curtime + Vars::Visuals::Hitbox::DrawDuration.Value, Vars::Colors::BoundHitboxEdgeClipped.Value, Vars::Colors::BoundHitboxFaceClipped.Value, true);
 		}
 		}
 
@@ -1142,11 +1113,11 @@ void CVisuals::Event(IGameEvent* pEvent, uint32_t uHash)
 		if (!pEntity || !pEntity->IsPlayer())
 			return;
 
-		auto itemName = pEvent->GetString("item");
-		if (std::strstr(itemName, "medkit"))
-			m_vPickups.push_back({ 1, I::EngineClient->Time(), pEntity->m_vecOrigin() });
-		else if (std::strstr(itemName, "ammopack"))
-			m_vPickups.push_back({ 0, I::EngineClient->Time(), pEntity->m_vecOrigin() });
+		const char* sItemName = pEvent->GetString("item");
+		if (std::strstr(sItemName, "medkit"))
+			m_vPickups.emplace_back(1, I::EngineClient->Time(), pEntity->m_vecOrigin());
+		else if (std::strstr(sItemName, "ammopack"))
+			m_vPickups.emplace_back(0, I::EngineClient->Time(), pEntity->m_vecOrigin());
 	}
 	}
 }
@@ -1203,7 +1174,7 @@ void CVisuals::OverrideWorldTextures()
 	}
 }
 
-void ApplyModulation(const Color_t& clr, bool bSky = false)
+static inline void ApplyModulation(const Color_t& clr, bool bSky = false)
 {
 	for (auto h = I::MaterialSystem->FirstMaterial(); h != I::MaterialSystem->InvalidMaterial(); h = I::MaterialSystem->NextMaterial(h))
 	{
@@ -1266,7 +1237,7 @@ void CVisuals::RestoreWorldModulation()
 
 void CVisuals::CreateMove(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 {
-	if (Vars::Visuals::Simulation::ShotPath.Value && G::Attacking == 1 && !F::Aimbot.bRan)
+	if (Vars::Visuals::Simulation::ShotPath.Value && G::Attacking == 1 && !F::Aimbot.m_bRan)
 		F::Visuals.ProjectileTrace(pLocal, pWeapon, false);
 
 	{

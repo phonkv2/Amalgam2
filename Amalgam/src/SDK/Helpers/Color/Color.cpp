@@ -10,8 +10,8 @@ Color_t CColor::GetTeamColor(int iLocalTeam, int iTargetTeam, bool bRelative)
 	{
 		switch (iTargetTeam)
 		{
-		case 2: return Vars::Colors::TeamRed.Value;
-		case 3: return Vars::Colors::TeamBlu.Value;
+		case TF_TEAM_RED: return Vars::Colors::TeamRed.Value;
+		case TF_TEAM_BLUE: return Vars::Colors::TeamBlu.Value;
 		}
 	}
 
@@ -105,7 +105,7 @@ Color_t CColor::GetEntityDrawColor(CTFPlayer* pLocal, CBaseEntity* pEntity, bool
 	if (G::Target.first > 0 && pEntity->entindex() == G::Target.first)
 	{
 		out = Vars::Colors::Target.Value;
-		if (pType) *pType = 8;
+		if (pType) *pType = 6;
 	}
 
 	return out;

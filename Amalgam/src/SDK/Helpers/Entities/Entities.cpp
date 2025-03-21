@@ -138,71 +138,108 @@ void CEntities::Store()
 		}
 	}
 
-	std::unordered_map<uint32_t, bool> mParty = {};
-	if (auto pParty = I::TFGCClientSystem->GetParty())
-	{
-		int iPartyCount = pParty->GetNumMembers();
-		for (int i = 0; i < iPartyCount; i++)
-		{
-			auto sID = CSteamID(); pParty->GetMember(&sID, i);
-			mParty[sID.GetAccountID()] = true;
-		}
-	}
-	for (int n = 1; n <= I::EngineClient->GetMaxClients(); n++)
-	{
-		auto pEntity = I::ClientEntityList->GetClientEntity(n)->As<CTFPlayer>();
-		if (!pEntity || !pEntity->IsPlayer())
-			continue;
-
-		auto pResource = GetPR();
-		if (pResource && pResource->GetValid(n))
-		{
-			if (pEntity->IsDormant())
-			{
-				pEntity->m_lifeState() = pResource->IsAlive(n) ? LIFE_ALIVE : LIFE_DEAD;
-				pEntity->m_iHealth() = pResource->GetHealth(n);
-				if (m_mDormancy.contains(n))
-				{
-					auto& tDormancy = m_mDormancy[n];
-					if (I::EngineClient->Time() - tDormancy.LastUpdate < Vars::ESP::DormantTime.Value)
-						pEntity->SetAbsOrigin(pEntity->m_vecOrigin() = tDormancy.Location);
-					else
-						m_mDormancy.erase(n);
-				}
-			}
-			else if (pResource->IsAlive(n))
-				m_mDormancy[n] = { pEntity->m_vecOrigin(), I::EngineClient->Time() };
-		}
-
-		m_mModels[n] = FNV1A::Hash32(I::ModelInfoClient->GetModelName(pEntity->GetModel()));
-		m_mGroups[EGroupType::PLAYERS_ALL].push_back(pEntity);
-		m_mGroups[pEntity->m_iTeamNum() != m_pLocal->m_iTeamNum() ? EGroupType::PLAYERS_ENEMIES : EGroupType::PLAYERS_TEAMMATES].push_back(pEntity);
-
-		PlayerInfo_t pi{};
-		if (I::EngineClient->GetPlayerInfo(n, &pi) && !pi.fakeplayer)
-		{
-			m_mIFriends[n] = m_mUFriends[pi.friendsID] = I::SteamFriends->HasFriend({ pi.friendsID, 1, k_EUniversePublic, k_EAccountTypeIndividual }, k_EFriendFlagImmediate);
-			m_mIParty[n] = m_mUParty[pi.friendsID] = mParty.contains(pi.friendsID) && n != I::EngineClient->GetLocalPlayer();
-		}
-	}
-
+	static Timer tTimer = {};
+	bool bShouldUpdateInfo = tTimer.Run(1.f);
+	static auto sv_maxusrcmdprocessticks = U::ConVars.FindVar("sv_maxusrcmdprocessticks");
+	int iMaxShift = sv_maxusrcmdprocessticks ? sv_maxusrcmdprocessticks->GetInt() : 24;
 	int iLag;
 	{
 		static int iStaticTickcout = I::GlobalVars->tickcount;
 		iLag = I::GlobalVars->tickcount - iStaticTickcout - 1;
 		iStaticTickcout = I::GlobalVars->tickcount;
 	}
+	std::unordered_map<uint32_t, bool> mParty = {};
+	std::unordered_map<uint32_t, bool> mF2P = {};
+	std::unordered_map<int, int> mLevels = {};
+	if (bShouldUpdateInfo)
+	{
+		m_mIFriends.clear();
+		m_mUFriends.clear();
+		m_mIParty.clear();
+		m_mUParty.clear();
+		m_mIF2P.clear();
+		m_mUF2P.clear();
+		m_mILevels.clear();
+		m_mULevels.clear();
+		m_mIPriorities.clear();
+		m_mUPriorities.clear();
 
-	static auto sv_maxusrcmdprocessticks = U::ConVars.FindVar("sv_maxusrcmdprocessticks");
-	int iMaxShift = sv_maxusrcmdprocessticks ? sv_maxusrcmdprocessticks->GetInt() : 24;
+		if (auto pParty = I::TFGCClientSystem->GetParty())
+		{
+			for (int i = 0; i < pParty->GetNumMembers(); i++)
+			{
+				auto cSteamID = CSteamID(); pParty->GetMember(&cSteamID, i);
+				mParty[cSteamID.GetAccountID()] = true;
+			}
+		}
+		if (auto pLobby = I::TFGCClientSystem->GetLobby())
+		{
+			for (int i = 0; i < pLobby->GetNumMembers(); i++)
+			{
+				auto cSteamID = CSteamID(); pLobby->GetMember(&cSteamID, i);
+
+				ConstTFLobbyPlayer pDetails;
+				pLobby->GetMemberDetails(&pDetails, i);
+							
+				mF2P[cSteamID.GetAccountID()] = *reinterpret_cast<bool*>(uintptr_t(pDetails.Proto()) + 69);
+			}
+		}
+		if (auto pGameRules = I::TFGameRules())
+		{
+			auto pMatchDesc = pGameRules->GetMatchGroupDescription();
+			if (pMatchDesc && pMatchDesc->m_pProgressionDesc)
+			{
+				for (int n = 1; n <= I::EngineClient->GetMaxClients(); n++)
+					mLevels[n] = pMatchDesc->GetLevelForIndex(n);
+			}
+		}
+	}
 	for (int n = 1; n <= I::EngineClient->GetMaxClients(); n++)
 	{
+		if (bShouldUpdateInfo)
+		{
+			PlayerInfo_t pi{};
+			if (I::EngineClient->GetPlayerInfo(n, &pi) && !pi.fakeplayer)
+			{
+				m_mIFriends[n] = m_mUFriends[pi.friendsID] = I::SteamFriends->HasFriend({ pi.friendsID, 1, k_EUniversePublic, k_EAccountTypeIndividual }, k_EFriendFlagImmediate);
+				m_mIParty[n] = m_mUParty[pi.friendsID] = mParty.contains(pi.friendsID) && n != I::EngineClient->GetLocalPlayer();
+				m_mIF2P[n] = m_mUF2P[pi.friendsID] = mF2P.contains(pi.friendsID) ? mF2P[pi.friendsID] : false;
+				m_mILevels[n] = m_mULevels[pi.friendsID] = mLevels.contains(n) ? mLevels[n] : -2;
+				m_mIPriorities[n] = m_mUPriorities[pi.friendsID] = n != I::EngineClient->GetLocalPlayer() ? F::PlayerUtils.GetPriority(pi.friendsID, false) : 0;
+			}
+		}
+
 		auto pPlayer = I::ClientEntityList->GetClientEntity(n)->As<CTFPlayer>();
-		if (!pPlayer || n == I::EngineClient->GetLocalPlayer())
+		if (!pPlayer || !pPlayer->IsPlayer())
+			continue;
+
+		auto pResource = GetPR();
+		if (pResource && pResource->GetValid(n))
+		{
+			if (pPlayer->IsDormant())
+			{
+				pPlayer->m_lifeState() = pResource->IsAlive(n) ? LIFE_ALIVE : LIFE_DEAD;
+				pPlayer->m_iHealth() = pResource->GetHealth(n);
+				if (m_mDormancy.contains(n))
+				{
+					auto& tDormancy = m_mDormancy[n];
+					if (I::EngineClient->Time() - tDormancy.LastUpdate < Vars::ESP::DormantTime.Value)
+						pPlayer->SetAbsOrigin(pPlayer->m_vecOrigin() = tDormancy.Location);
+					else
+						m_mDormancy.erase(n);
+				}
+			}
+			else if (pResource->IsAlive(n))
+				m_mDormancy[n] = { pPlayer->m_vecOrigin(), I::EngineClient->Time() };
+		}
+
+		m_mModels[n] = FNV1A::Hash32(I::ModelInfoClient->GetModelName(pPlayer->GetModel()));
+		m_mGroups[EGroupType::PLAYERS_ALL].push_back(pPlayer);
+		m_mGroups[pPlayer->m_iTeamNum() != m_pLocal->m_iTeamNum() ? EGroupType::PLAYERS_ENEMIES : EGroupType::PLAYERS_TEAMMATES].push_back(pPlayer);
+		if (n == I::EngineClient->GetLocalPlayer())
 			continue;
 
 		bool bDormant = pPlayer->IsDormant();
-
 		float flOldSimTime = m_mOldSimTimes[n] = m_mSimTimes.contains(n) ? m_mSimTimes[n] : pPlayer->m_flOldSimulationTime();
 		float flSimTime = m_mSimTimes[n] = (bDormant ? m_pLocal : pPlayer)->m_flSimulationTime(); // lol
 		float flDeltaTime = m_mDeltaTimes[n] = TICKS_TO_TIME(std::clamp(TIME_TO_TICKS(flSimTime - flOldSimTime) - iLag, 0, iMaxShift));
@@ -211,6 +248,15 @@ void CEntities::Store()
 			if (pPlayer->IsAlive() && !bDormant)
 				F::CheaterDetection.ReportChoke(pPlayer, m_mChokes[n]);
 			m_mSetTicks[n] = I::GlobalVars->tickcount;
+
+			if (!bDormant)
+			{
+				m_mOrigins[n].emplace_front(pPlayer->m_vecOrigin() + Vec3(0, 0, pPlayer->m_vecMaxs().z - pPlayer->m_vecMins().z), pPlayer->m_flSimulationTime());
+				if (m_mOrigins[n].size() > Vars::Aimbot::Projectile::VelocityAverageCount.Value)
+					m_mOrigins[n].pop_back();
+			}
+			else
+				m_mOrigins[n].clear();
 		}
 		m_mChokes[n] = I::GlobalVars->tickcount - m_mSetTicks[n];
 
@@ -230,15 +276,6 @@ void CEntities::Store()
 		m_mEyeAngles[n] = vNewAngles;
 		m_mPingAngles[n] = (vNewAngles - vOldAngles) / (flSimTime - flOldSimTime) * (F::Backtrack.GetReal() + TICKS_TO_TIME(F::Backtrack.GetAnticipatedChoke()));
 	}
-
-	for (auto pEntity : GetGroup(EGroupType::PLAYERS_ALL))
-	{
-		auto pPlayer = pEntity->As<CTFPlayer>();
-
-		PlayerInfo_t pi{};
-		if (I::EngineClient->GetPlayerInfo(pPlayer->entindex(), &pi))
-			m_mIPriorities[pPlayer->entindex()] = m_mUPriorities[pi.friendsID] = F::PlayerUtils.GetPriority(pi.friendsID, false);
-	}
 }
 
 void CEntities::Clear(bool bShutdown)
@@ -247,12 +284,6 @@ void CEntities::Clear(bool bShutdown)
 	m_pLocalWeapon = nullptr;
 	m_pPlayerResource = nullptr;
 	m_mGroups.clear();
-	m_mIFriends.clear();
-	m_mUFriends.clear();
-	m_mIParty.clear();
-	m_mUParty.clear();
-	m_mIPriorities.clear();
-	m_mUPriorities.clear();
 	m_bSettingUpBones = false;
 
 	if (bShutdown)
@@ -436,11 +467,16 @@ void CEntities::SetLagCompensation(int iIndex, bool bLagComp) { m_mLagCompensati
 Vec3* CEntities::GetAvgVelocity(int iIndex) { return iIndex != I::EngineClient->GetLocalPlayer() ? &m_mAvgVelocities[iIndex] : nullptr; }
 void CEntities::SetAvgVelocity(int iIndex, Vec3 vAvgVelocity) { m_mAvgVelocities[iIndex] = vAvgVelocity; }
 uint32_t CEntities::GetModel(int iIndex) { return m_mModels[iIndex]; }
+std::deque<VelFixRecord>* CEntities::GetOrigins(int iIndex) { return m_mOrigins.contains(iIndex) ? &m_mOrigins[iIndex] : nullptr; }
 
 bool CEntities::IsFriend(int iIndex) { return m_mIFriends[iIndex]; }
 bool CEntities::IsFriend(uint32_t friendsID) { return m_mUFriends[friendsID]; }
 bool CEntities::InParty(int iIndex) { return m_mIParty[iIndex]; }
 bool CEntities::InParty(uint32_t friendsID) { return m_mUParty[friendsID]; }
+bool CEntities::IsF2P(int iIndex) { return m_mIF2P[iIndex]; }
+bool CEntities::IsF2P(uint32_t friendsID) { return m_mUF2P[friendsID]; }
+int CEntities::GetLevel(int iIndex) { return m_mILevels.contains(iIndex) ? m_mILevels[iIndex] : -2; }
+int CEntities::GetLevel(uint32_t friendsID) { return m_mULevels.contains(friendsID) ? m_mULevels[friendsID] : -2; }
 int CEntities::GetPriority(int iIndex) { return m_mIPriorities[iIndex]; }
 int CEntities::GetPriority(uint32_t friendsID) { return m_mUPriorities[friendsID]; }
 
