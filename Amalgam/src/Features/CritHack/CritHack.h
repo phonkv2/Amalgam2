@@ -37,15 +37,19 @@ private:
 	void ResetWeapons(CTFPlayer* pLocal);
 	void Reset();
 
-	int m_iBoostedDamage = 0.f;
-	int m_iMeleeDamage = 0.f;
-	int m_iCritDamage = 0.f;
-	int m_iAllDamage = 0.f;
+	int m_iBoostedDamage = 0;
+	int m_iMeleeDamage = 0;
+	int m_iCritDamage = 0;
+	int m_iAllDamage = 0;
+	int m_iDamageDiff = 0;
+	float m_flResyncTime = 0.f;
 	std::unordered_map<int, int> m_mHealthStorage = {};
 
 	bool m_bCritBanned = false;
 	int m_iDamageTilUnban = 0;
+	int m_iDamageTilBan = 0;
 	float m_flCritChance = 0.f;
+	float m_flObservedCritChance = 0.f;
 	int m_iWishRandomSeed = 0;
 
 public:

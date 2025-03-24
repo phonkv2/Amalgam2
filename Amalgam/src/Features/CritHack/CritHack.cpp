@@ -106,6 +106,9 @@ void CCritHack::Resync(CTFPlayer* pLocal)
 	{
 		if (Vars::Debug::Logging.Value)
 			SDK::Output("Crithack", std::format("player resource reports {} damage but current m_iAllDamage is {}", iProperDamage, m_iAllDamage).c_str());
+		
+		m_iDamageDiff = iProperDamage - m_iAllDamage;
+		m_flResyncTime = I::GlobalVars->curtime + 1.0f;
 		m_iAllDamage = iProperDamage;
 	}
 }
@@ -237,14 +240,17 @@ void CCritHack::CanFireCritical(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 		m_flCritChance = TF_DAMAGE_CRIT_CHANCE * pLocal->GetCritMult();
 	m_flCritChance = SDK::AttribHookValue(m_flCritChance, "mult_crit_chance", pWeapon);
 
-	if (!m_iAllDamage || !m_iCritDamage || pWeapon->GetSlot() == SLOT_MELEE)
+	if (!m_iAllDamage /*|| !m_iCritDamage*/ || pWeapon->GetSlot() == SLOT_MELEE)
 		return;
 
+	const auto nTotalDamage = std::max( m_iAllDamage, m_iCritDamage );
 	const float flNormalizedDamage = m_iCritDamage / TF_DAMAGE_CRIT_MULTIPLIER;
-	const float flObservedCritChance = flNormalizedDamage / (flNormalizedDamage + std::max(m_iAllDamage, m_iCritDamage) - m_iCritDamage);
+	m_flObservedCritChance = flNormalizedDamage / ( flNormalizedDamage + nTotalDamage - m_iCritDamage );
 	float flCritChance = m_flCritChance + 0.1f;
-	if (m_bCritBanned = flObservedCritChance > flCritChance)
+	if (m_bCritBanned = m_flObservedCritChance > flCritChance)
 		m_iDamageTilUnban = flNormalizedDamage / flCritChance + m_iCritDamage - flNormalizedDamage - m_iAllDamage;
+	else
+		m_iDamageTilBan = ( ( flCritChance * flNormalizedDamage - flCritChance * m_iCritDamage + flCritChance * nTotalDamage - flNormalizedDamage ) / flCritChance ) / TF_DAMAGE_CRIT_MULTIPLIER;
 }
 
 void CCritHack::IsAllowedToWithdrawFromCritBucketHandler(float flDamage) { m_iAllDamage = flDamage; }
@@ -321,13 +327,21 @@ void CCritHack::ResetWeapons(CTFPlayer* pLocal)
 void CCritHack::Reset()
 {
 	m_mStorage = {};
+	m_mHealthStorage = {};
 
+	m_iBoostedDamage = 0;
+	m_iMeleeDamage = 0;
 	m_iCritDamage = 0;
 	m_iAllDamage = 0;
+	m_iDamageDiff = 0;
+	m_flResyncTime = 0.f;
 
 	m_bCritBanned = false;
 	m_iDamageTilUnban = 0;
+	m_iDamageTilBan = 0;
 	m_flCritChance = 0.f;
+	m_flObservedCritChance = 0.f;
+	m_iWishRandomSeed = 0;
 
 	SDK::Output("Crithack", "Resetting all", { 0, 255, 255, 255 }, Vars::Debug::Logging.Value);
 }
@@ -590,6 +604,17 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 				int iShots = tStorage.m_iNextCrit;
 				H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Next in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
 			}
+
+			if ( !m_bCritBanned )
+			{
+				H::Draw.String( fFont, x, y += nTall, Vars::Colors::IndicatorTextGood.Value, align, std::format( "{} damage", m_iDamageTilBan ).c_str( ) );
+			}
+
+			if ( m_flResyncTime >= I::GlobalVars->curtime )
+			{
+				H::Draw.String( fFont, x, y += nTall, Vars::Colors::IndicatorTextBad.Value, align,
+								std::format( "Damage desync: +{}", m_iDamageDiff ).c_str( ) );
+			}
 		}
 		else
 			H::Draw.String(fFont, x, y, Vars::Menu::Theme::Active.Value, align, "Calculating");
@@ -599,7 +624,7 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 			H::Draw.String(fFont, x, y += nTall * 2, Vars::Menu::Theme::Active.Value, align, std::format("AllDamage: {}, CritDamage: {}", m_iAllDamage, m_iCritDamage).c_str());
 			H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Bucket: {}, Shots: {}, Crits: {}", pWeapon->m_flCritTokenBucket(), pWeapon->m_nCritChecks(), pWeapon->m_nCritSeedRequests()).c_str());
 			H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Damage: {}, Cost: {}", tStorage.m_flDamage, tStorage.m_flCost).c_str());
-			H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("CritChance: {:.2f} ({:.2f})", m_flCritChance, m_flCritChance + 0.1f).c_str());
+			H::Draw.String( fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format( "CritChance: {:.2f} ({:f}), ObservedCritChance: {:f}", m_flCritChance, m_flCritChance + 0.1f, m_flObservedCritChance ).c_str( ) );
 			H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Force: {}, Skip: {}", tStorage.m_vCritCommands.size(), tStorage.m_vSkipCommands.size()).c_str());
 		}
 	}
