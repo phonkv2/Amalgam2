@@ -605,7 +605,7 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 				H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Next in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
 			}
 
-			if ( !m_bCritBanned )
+			if ( !m_bCritBanned && m_iDamageTilBan )
 			{
 				H::Draw.String( fFont, x, y += nTall, Vars::Colors::IndicatorTextGood.Value, align, std::format( "{} damage", m_iDamageTilBan ).c_str( ) );
 			}
