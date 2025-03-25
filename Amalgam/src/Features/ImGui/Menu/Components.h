@@ -2388,7 +2388,10 @@ namespace ImGui
 			if (iBind != DEFAULT_BIND && iBind < F::Binds.m_vBinds.size())
 				tBind = F::Binds.m_vBinds[iBind];
 			else
+			{
 				tBind = { sBind };
+				tBind.m_pVar = &var;
+			}
 			if (var.Map.contains(iBind))
 				val = var.Map[iBind];
 		}
@@ -2399,6 +2402,7 @@ namespace ImGui
 			{
 				iBind = int(F::Binds.m_vBinds.size());
 				tBind = { sBind };
+				tBind.m_pVar = &var;
 				F::Binds.AddBind(iBind, tBind);
 			}
 			else
@@ -2521,13 +2525,73 @@ namespace ImGui
 		return bReturn;\
 	}
 
+	#define WRAPPER_ENTRIES(function, type, parameters, arguments, entryparam, flags )\
+	inline bool function(const char* sLabel, ConfigVar<type>& var, parameters, bool* pHovered = nullptr, std::string sBindOverride = "")\
+	{\
+		auto val = FGet(var, true);\
+		bool bHovered = false;\
+		const bool bReturn = function(sLabel, arguments, &bHovered);\
+		var.m_vEntries = entryparam;\
+		if ( flags & FDropdown_Multi )\
+			var.m_iFlags |= MULTI;\
+		FSet(var, val);\
+		if (pHovered)\
+			*pHovered = bHovered;\
+		if (!(var.m_iFlags & (NOBIND | NOSAVE)) && !Disabled && CurrentBind == DEFAULT_BIND)\
+		{	/*probably a better way to do this*/\
+			static auto staticVal = val;\
+			bool bNewPopup = bHovered && IsMouseReleased(ImGuiMouseButton_Right) && !IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId);\
+			if (bNewPopup)\
+			{\
+				OpenPopup(std::format("{}::{}", var.m_sName.c_str(), sLabel).c_str());\
+				staticVal = val;\
+			}\
+			PushStyleVar(ImGuiStyleVar_PopupBorderSize, H::Draw.Scale(1));\
+			PushStyleColor(ImGuiCol_PopupBg, F::Render.Background0p5.Value);\
+			SetNextWindowSize({ H::Draw.Scale(300), 0 });\
+			bool bPopup = BeginPopup(std::format("{}::{}", var.m_sName.c_str(), sLabel).c_str());\
+			PopStyleColor();\
+			PopStyleVar();\
+			if (bPopup)\
+			{\
+				std::string sLower = !sBindOverride.empty() ? sBindOverride : StripDoubleHash(sLabel);\
+				std::transform(sLower.begin(), sLower.end(), sLower.begin(), ::tolower);\
+				switch (FNV1A::Hash32Const(#function)) /*get rid of any visual flags*/\
+				{\
+				case FNV1A::Hash32Const("FToggle"):\
+					iFlags &= ~(FToggle_Left | FToggle_Right); break;\
+				case FNV1A::Hash32Const("FSlider"):\
+					iFlags &= ~(FSlider_Left | FSlider_Right); break;\
+				case FNV1A::Hash32Const("FDropdown"):\
+				case FNV1A::Hash32Const("FSDropdown"):\
+				/*case FNV1A::Hash32Const("FVDropdown"):*/\
+				case FNV1A::Hash32Const("FMDropdown"):\
+					iFlags &= ~(FDropdown_Left | FDropdown_Right); break;\
+				case FNV1A::Hash32Const("FColorPicker"):\
+					iFlags &= ~(FColorPicker_Middle | FColorPicker_SameLine | FColorPicker_Dropdown | FColorPicker_Tooltip);\
+					iFlags |= FColorPicker_Left; /*add left flag for color pickers*/\
+				}\
+				PushTransparent(false);\
+				static bool bLastHovered = false;\
+				DrawBindInfo(var, staticVal, sLower, bNewPopup, bLastHovered );\
+				val = staticVal;\
+				function(std::format("{}## Bind", sLabel).c_str(), arguments, &bHovered);\
+				bLastHovered = bLastHovered || bHovered;\
+				staticVal = val;\
+				PopTransparent(2);\
+				EndPopup();\
+			}\
+		}\
+		return bReturn;\
+	}
+
 	WRAPPER(FToggle, bool, VA_LIST(int iFlags = 0), VA_LIST(&val, iFlags))
 	WRAPPER(FSlider, IntRange_t, VA_LIST(int iMin, int iMax, int iStep = 1, const char* fmt = "%d", int iFlags = 0), VA_LIST(&val.Min, &val.Max, iMin, iMax, iStep, fmt, iFlags))
 	WRAPPER(FSlider, FloatRange_t, VA_LIST(float flMin, float flMax, float flStep = 1.f, const char* fmt = "%.0f", int iFlags = 0), VA_LIST(&val.Min, &val.Max, flMin, flMax, flStep, fmt, iFlags))
 	WRAPPER(FSlider, float, VA_LIST(float flMin, float flMax, float flStep = 1.f, const char* fmt = "%.0f", int iFlags = 0), VA_LIST(&val, flMin, flMax, flStep, fmt, iFlags))
 	WRAPPER(FSlider, int, VA_LIST(int iMin, int iMax, int iStep = 1, const char* fmt = "%d", int iFlags = 0), VA_LIST(&val, iMin, iMax, iStep, fmt, iFlags))
-	WRAPPER(FDropdown, int, VA_LIST(std::vector<const char*> vEntries, std::vector<int> vValues = {}, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, vValues, iFlags, iSizeOffset))
-	WRAPPER(FSDropdown, std::string, VA_LIST(std::vector<const char*> vEntries = {}, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, iFlags, iSizeOffset))
+	WRAPPER_ENTRIES(FDropdown, int, VA_LIST(std::vector<const char*> vEntries, std::vector<int> vValues = {}, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, vValues, iFlags, iSizeOffset), vEntries, iFlags )
+	WRAPPER_ENTRIES(FSDropdown, std::string, VA_LIST(std::vector<const char*> vEntries = {}, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, iFlags, iSizeOffset), vEntries, iFlags )
 	//WRAPPER(FVDropdown, std::vector<std::string>, VA_LIST(std::vector<std::string> vEntries, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, iFlags, iSizeOffset))
 	WRAPPER(FMDropdown, VA_LIST(std::vector<std::pair<std::string, Color_t>>), VA_LIST(int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, iFlags, iSizeOffset))
 	WRAPPER(FColorPicker, Color_t, VA_LIST(int iOffset = 0, int iFlags = 0), VA_LIST(&val, iOffset, iFlags))

@@ -530,7 +530,7 @@ void CCritHack::Store()
 
 void CCritHack::Draw(CTFPlayer* pLocal)
 {
-	if (!(Vars::Menu::Indicators.Value & Vars::Menu::IndicatorsEnum::CritHack) || !I::EngineClient->IsInGame())
+	if (!(Vars::Menu::Indicators.Value & (1 << Vars::Menu::IndicatorsEnum::CritHack)) || !I::EngineClient->IsInGame())
 		return;
 
 	auto pWeapon = H::Entities.GetWeapon();
@@ -558,7 +558,7 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 	if (!m_mStorage.contains(iSlot))
 	{
 		if (WeaponCanCrit(pWeapon, true))
-			H::Draw.String(fFont, x, y, Vars::Colors::IndicatorTextBad.Value, align, "Random crits disabled");
+			H::Draw.String(fFont, x, y, Color_t(255, 150, 150, 255), align, "Random crits disabled");
 	}
 	else
 	{
@@ -569,11 +569,11 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 		if (tStorage.m_flDamage > 0)
 		{
 			if (pLocal->IsCritBoosted())
-				H::Draw.String(fFont, x, y, Vars::Colors::IndicatorTextMisc.Value, align, "Crit Boosted");
+				H::Draw.String(fFont, x, y, Color_t(100, 255, 255, 255), align, "Crit Boosted");
 			else if (pWeapon->m_flCritTime() > flTickBase)
 			{
 				float flTime = pWeapon->m_flCritTime() - flTickBase;
-				H::Draw.String(fFont, x, y, Vars::Colors::IndicatorTextMisc.Value, align, std::format("Streaming crits {:.1f}s", flTime).c_str());
+				H::Draw.String(fFont, x, y, Color_t(100, 255, 255, 255), align, std::format("Streaming crits {:.1f}s", flTime).c_str());
 			}
 			else if (!m_bCritBanned)
 			{
@@ -582,50 +582,49 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 					if (bRapidFire && flTickBase < pWeapon->m_flLastRapidFireCritCheckTime() + 1.f)
 					{
 						float flTime = pWeapon->m_flLastRapidFireCritCheckTime() + 1.f - flTickBase;
-						H::Draw.String(fFont, x, y, Vars::Menu::Theme::Active.Value, align, std::format("Wait {:.1f}s", flTime).c_str());
+						H::Draw.String(fFont, x, y, Color_t(255, 255, 255, 255), align, std::format("Wait {:.1f}s", flTime).c_str());
 					}
 					else
-						H::Draw.String(fFont, x, y, Vars::Colors::IndicatorTextGood.Value, align, "Crit Ready");
+						H::Draw.String(fFont, x, y, Color_t(150, 255, 150, 255), align, "Crit Ready");
 				}
 				else
 				{
 					int iShots = tStorage.m_iNextCrit;
-					H::Draw.String(fFont, x, y, Vars::Colors::IndicatorTextBad.Value, align, std::format("Crit in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
+					H::Draw.String(fFont, x, y, Color_t(255, 150, 150, 255), align, std::format("Crit in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
 				}
 			}
 			else
-				H::Draw.String(fFont, x, y, Vars::Colors::IndicatorTextBad.Value, align, std::format("Deal {} damage", m_iDamageTilUnban).c_str());
+				H::Draw.String(fFont, x, y, Color_t(255, 150, 150, 255), align, std::format("Deal {} damage", m_iDamageTilUnban).c_str());
 
 			int iCrits = tStorage.m_iAvailableCrits;
-			H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("{}{} / {} potential crits", iCrits, iCrits == 1000 ? "+" : "", tStorage.m_iPotentialCrits).c_str());
+			H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("{}{} / {} potential crits", iCrits, iCrits == 1000 ? "+" : "", tStorage.m_iPotentialCrits).c_str());
 
 			if (iCrits && tStorage.m_iNextCrit)
 			{
 				int iShots = tStorage.m_iNextCrit;
-				H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Next in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
+				H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Next in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
 			}
 
-			if ( !m_bCritBanned )
+			if (!m_bCritBanned && m_iDamageTilBan)
 			{
-				H::Draw.String( fFont, x, y += nTall, Vars::Colors::IndicatorTextGood.Value, align, std::format( "{} damage", m_iDamageTilBan ).c_str( ) );
+				H::Draw.String(fFont, x, y += nTall, Color_t(150, 255, 150, 255), align, std::format("{} damage", m_iDamageTilBan).c_str());
 			}
 
-			if ( m_flResyncTime >= I::GlobalVars->curtime )
+			if (m_flResyncTime >= I::GlobalVars->curtime)
 			{
-				H::Draw.String( fFont, x, y += nTall, Vars::Colors::IndicatorTextBad.Value, align,
-								std::format( "Damage desync: +{}", m_iDamageDiff ).c_str( ) );
+				H::Draw.String(fFont, x, y += nTall, Color_t(255, 150, 150, 255), align, std::format("Damage desync +{}", m_iDamageDiff).c_str());
 			}
 		}
 		else
-			H::Draw.String(fFont, x, y, Vars::Menu::Theme::Active.Value, align, "Calculating");
+			H::Draw.String(fFont, x, y, Color_t(255, 255, 255, 255), align, "Calculating");
 
 		if (Vars::Debug::Info.Value)
 		{
-			H::Draw.String(fFont, x, y += nTall * 2, Vars::Menu::Theme::Active.Value, align, std::format("AllDamage: {}, CritDamage: {}", m_iAllDamage, m_iCritDamage).c_str());
-			H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Bucket: {}, Shots: {}, Crits: {}", pWeapon->m_flCritTokenBucket(), pWeapon->m_nCritChecks(), pWeapon->m_nCritSeedRequests()).c_str());
-			H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Damage: {}, Cost: {}", tStorage.m_flDamage, tStorage.m_flCost).c_str());
-			H::Draw.String( fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format( "CritChance: {:.2f} ({:f}), ObservedCritChance: {:f}", m_flCritChance, m_flCritChance + 0.1f, m_flObservedCritChance ).c_str( ) );
-			H::Draw.String(fFont, x, y += nTall, Vars::Menu::Theme::Active.Value, align, std::format("Force: {}, Skip: {}", tStorage.m_vCritCommands.size(), tStorage.m_vSkipCommands.size()).c_str());
+			H::Draw.String(fFont, x, y += nTall * 2, Color_t(255, 255, 255, 255), align, std::format("AllDamage: {}, CritDamage: {}", m_iAllDamage, m_iCritDamage).c_str());
+			H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Bucket: {}, Shots: {}, Crits: {}", pWeapon->m_flCritTokenBucket(), pWeapon->m_nCritChecks(), pWeapon->m_nCritSeedRequests()).c_str());
+			H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Damage: {}, Cost: {}", tStorage.m_flDamage, tStorage.m_flCost).c_str());
+			H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("CritChance: {:.2f} ({:f}), ObservedCritChance: {:f}", m_flCritChance, m_flCritChance + 0.1f, m_flObservedCritChance).c_str());
+			H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Force: {}, Skip: {}", tStorage.m_vCritCommands.size(), tStorage.m_vSkipCommands.size()).c_str());
 		}
 	}
 }

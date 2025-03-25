@@ -35,29 +35,41 @@ void CBinds::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 		tKey.m_bIsReleased = tKey.m_bIsReleased || bOldIsReleased;
 	}
 
-	auto setVars = [](int iBind)
-		{
-			const bool bDefault = iBind == DEFAULT_BIND;
-			for (auto var : g_Vars)
-			{
-				if (var->m_iFlags & (NOSAVE | NOBIND) && !bDefault)
-					continue;
+	//large optimization l0l
+	auto setVars = [ ]( int iBind, CVarBase* var )
+	{
+		if ( var->m_iFlags & ( NOSAVE | NOBIND ) )
+			return;
 
-				SetT(bool, iBind)
-				else SetT(int, iBind)
-				else SetT(float, iBind)
-				else SetT(IntRange_t, iBind)
-				else SetT(FloatRange_t, iBind)
-				else SetT(std::string, iBind)
-				else SetT(VA_LIST(std::vector<std::pair<std::string, Color_t>>), iBind)
-				else SetT(Color_t, iBind)
-				else SetT(Gradient_t, iBind)
-				else SetT(Vec3, iBind)
-				else SetT(DragBox_t, iBind)
-				else SetT(WindowBox_t, iBind)
-			}
-		};
-	setVars(DEFAULT_BIND);
+		SetT( bool, iBind )
+		else SetT( int, iBind )
+		else SetT( float, iBind )
+		else SetT( IntRange_t, iBind )
+		else SetT( FloatRange_t, iBind )
+		else SetT( std::string, iBind )
+		else SetT( VA_LIST( std::vector<std::pair<std::string, Color_t>> ), iBind )
+		else SetT( Color_t, iBind )
+		else SetT( Gradient_t, iBind )
+		else SetT( Vec3, iBind )
+		else SetT( DragBox_t, iBind )
+		else SetT( WindowBox_t, iBind )
+	};
+
+	for ( auto var : g_Vars )
+	{
+		SetT( bool, DEFAULT_BIND )
+		else SetT( int, DEFAULT_BIND )
+		else SetT( float, DEFAULT_BIND )
+		else SetT( IntRange_t, DEFAULT_BIND )
+		else SetT( FloatRange_t, DEFAULT_BIND )
+		else SetT( std::string, DEFAULT_BIND )
+		else SetT( VA_LIST( std::vector<std::pair<std::string, Color_t>> ), DEFAULT_BIND )
+		else SetT( Color_t, DEFAULT_BIND )
+		else SetT( Gradient_t, DEFAULT_BIND )
+		else SetT( Vec3, DEFAULT_BIND )
+		else SetT( DragBox_t, DEFAULT_BIND )
+		else SetT( WindowBox_t, DEFAULT_BIND )
+	}
 
 	std::function<void(int)> getBinds = [&](int iParent)
 		{
@@ -134,7 +146,7 @@ void CBinds::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 
 				if (tBind.m_bActive)
 				{
-					setVars(iBind);
+					setVars(iBind, tBind.m_pVar);
 					getBinds(iBind);
 				}
 			}

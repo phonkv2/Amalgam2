@@ -17,6 +17,7 @@ class CVarBase
 public:
 	size_t m_iType;
 	std::string m_sName;
+	std::vector<const char*> m_vEntries = {};
 	int m_iFlags;
 
 	// getter for ConfigVar
@@ -80,7 +81,8 @@ inline ConfigVar<T>::ConfigVar(T value, std::string name, int iFlags)
 #define VISUAL (1 << 0)
 #define NOSAVE (1 << 1)
 #define NOBIND (1 << 2)
-#define DEBUGVAR //NOSAVE
+#define MULTI (1 << 3)
+#define DEBUGVAR NOSAVE
 
 namespace Vars
 {
@@ -162,7 +164,7 @@ namespace Vars
 			CVar(SplashRadius, 90.f)
 			CVar(AutoRelease, 0.f)
 
-			CVar(GroundSamples, 33, )
+			CVar(GroundSamples, 33, DEBUGVAR)
 			CVar(GroundStraightFuzzyValue, 100.f, DEBUGVAR)
 			CVar(GroundLowMinimumSamples, 16, DEBUGVAR)
 
@@ -192,7 +194,7 @@ namespace Vars
 			CVar(HuntsmanClamp, 5.f, DEBUGVAR)
 
 			CVar(HuntsmanPullPoint, false, DEBUGVAR)
-			CVar(SplashPoints, 100)
+			CVar(SplashPoints, 100, DEBUGVAR)
 			CVar(SplashGrates, true, DEBUGVAR)
 			CVar(SplashNthRoot, 1.f, DEBUGVAR)
 			CVar(SplashRotate, 0.f, DEBUGVAR)
@@ -806,14 +808,14 @@ namespace Vars
 		CVar(NPC, Color_t(255, 255, 255, 255), VISUAL)
 		CVar(Halloween, Color_t(100, 0, 255, 255), VISUAL)
 
-		CVar(IndicatorGood, Color_t(0, 255, 0, 255))
-		CVar(IndicatorMid, Color_t(255, 255, 0, 255))
-		CVar(IndicatorBad, Color_t(255, 0, 0, 255))
-		CVar(IndicatorMisc, Color_t(203, 255, 255, 255))
-		CVar(IndicatorTextGood, Color_t(150, 255, 150, 255))
-		CVar(IndicatorTextMid, Color_t(255, 200, 0, 255))
-		CVar(IndicatorTextBad, Color_t(255, 150, 150, 255))
-		CVar(IndicatorTextMisc, Color_t(100, 255, 255, 255))
+		CVar(IndicatorGood, Color_t(47, 233, 124, 255), VISUAL)
+		CVar(IndicatorMid, Color_t(255, 255, 81, 255), VISUAL)
+		CVar(IndicatorBad, Color_t(255, 0, 0, 255), VISUAL)
+		CVar(IndicatorMisc, Color_t(187, 0, 255, 255), VISUAL)
+		CVar(IndicatorTextGood, Color_t(111, 255, 0, 255), VISUAL)
+		CVar(IndicatorTextMid, Color_t(255, 200, 0, 255), VISUAL)
+		CVar(IndicatorTextBad, Color_t(255, 150, 150, 255), VISUAL)
+		CVar(IndicatorTextMisc, Color_t(100, 255, 255, 255), VISUAL)
 
 		CVar(WorldModulation, Color_t(255, 255, 255, 255), VISUAL)
 		CVar(SkyModulation, Color_t(255, 255, 255, 255), VISUAL)
