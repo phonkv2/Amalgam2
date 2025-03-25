@@ -2670,12 +2670,12 @@ void CMenu::DrawBinds()
 					{
 						sStatus = tBind.m_pVar->As<bool>( )->Value ? "On" : "Off";
 					}
-					else if ( tBind.m_pVar->m_iType == typeid( int ).hash_code( ) && !tBind.m_bValMulti )
+					else if ( tBind.m_pVar->m_iType == typeid( int ).hash_code( ) && !( tBind.m_pVar->m_iFlags & MULTI ) )
 					{
 						//sliders and dropdowns
-						if ( !tBind.m_vValEntries.empty( ) )
+						if ( !tBind.m_pVar->m_vEntries.empty( ) )
 						{
-							sStatus = tBind.m_vValEntries.at( tBind.m_pVar->As<int>( )->Value );
+							sStatus = tBind.m_pVar->m_vEntries.at( tBind.m_pVar->As<int>( )->Value );
 						}
 						else
 						{
@@ -2685,6 +2685,20 @@ void CMenu::DrawBinds()
 					else if ( tBind.m_pVar->m_iType == typeid( float ).hash_code( ) )
 					{
 						sStatus = std::format( "{:.2f}", tBind.m_pVar->As<float>( )->Value );
+					}
+					else if ( tBind.m_pVar->m_iType == typeid( IntRange_t ).hash_code( ) )
+					{
+						auto Val = tBind.m_pVar->As<IntRange_t>( )->Value;
+						sStatus = std::format( "{} - {}", Val.Min, Val.Max );
+					}
+					else if ( tBind.m_pVar->m_iType == typeid( FloatRange_t ).hash_code( ) )
+					{
+						auto Val = tBind.m_pVar->As<FloatRange_t>( )->Value;
+						sStatus = std::format( "{:.2f} - {:.2f}", Val.Min, Val.Max );
+					}
+					else if ( tBind.m_pVar->m_iType == typeid( std::string ).hash_code( ) )
+					{
+						sStatus = std::string( "\"" ) + tBind.m_pVar->As<std::string>( )->Value + std::string( "\"" );
 					}
 					else
 					{

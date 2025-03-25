@@ -13,7 +13,6 @@ namespace BindEnum
 struct Bind_t
 {
 	std::string m_sName = "";
-	std::vector<const char*> m_vValEntries = {};
 	CVarBase* m_pVar = nullptr;
 	bool m_bValMulti = false;
 

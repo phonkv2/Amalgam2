@@ -2468,136 +2468,6 @@ namespace ImGui
 		DebugDummy({ 0, H::Draw.Scale(8) });
 	}
 
-	template <class T>
-	inline void DrawBindInfo( ConfigVar<T>& var, T& val, std::string sBind, bool bNewPopup, bool& bLastHovered, std::vector<const char*> vValEntries, int iFlags )
-	{
-		TextUnformatted( std::format( "Bind '{}'", sBind ).c_str( ) );
-
-		static int iBind = DEFAULT_BIND;
-		static Bind_t tBind = {};
-		if ( bNewPopup )
-		{
-			iBind = DEFAULT_BIND;
-			tBind = { sBind };
-		}
-
-		std::vector<const char*> vEntries = {};
-		std::vector<int> vValues = {};
-
-		std::vector<std::string> vStrings = {}; // prevent dangling pointers
-		for ( auto& [_iBind, _] : var.Map )
-		{
-			if ( _iBind != DEFAULT_BIND )
-				vValues.push_back( _iBind );
-		}
-		std::sort( vValues.begin( ), vValues.end( ), [ & ]( const int a, const int b ) -> bool
-		{
-			return a < b;
-		} );
-		for ( auto _iBind : vValues )
-			vStrings.push_back( std::format( "{}## Bind{}", _iBind != DEFAULT_BIND && _iBind < F::Binds.m_vBinds.size( ) ? F::Binds.m_vBinds[ _iBind ].m_sName : sBind, _iBind ) );
-		for ( auto& sEntry : vStrings )
-			vEntries.push_back( sEntry.c_str( ) );
-
-		vEntries.push_back( "new bind" );
-		vValues.push_back( -1 );
-
-		int iModified = -2;
-		if ( FDropdown( "Bind", &iBind, vEntries, vValues, FDropdown_Modifiable, -60, nullptr, &iModified ) )
-		{
-			if ( iBind != DEFAULT_BIND && iBind < F::Binds.m_vBinds.size( ) )
-				tBind = F::Binds.m_vBinds[ iBind ];
-			else
-			{
-				tBind = { sBind };
-				tBind.m_pVar = &var;
-				tBind.m_bValMulti = iFlags & FDropdown_Multi;
-				if ( !tBind.m_bValMulti )
-				{
-					tBind.m_vValEntries = vValEntries;
-				}
-			}
-			if ( var.Map.contains( iBind ) )
-				val = var.Map[ iBind ];
-		}
-		bool bClickedNew = iBind == DEFAULT_BIND && bLastHovered && IsMouseDown( ImGuiMouseButton_Left );
-		if ( iModified != -2 || bClickedNew )
-		{
-			if ( iModified == -1 || bClickedNew )
-			{
-				iBind = int( F::Binds.m_vBinds.size( ) );
-				tBind = { sBind };
-				tBind.m_pVar = &var;
-				tBind.m_bValMulti = iFlags & FDropdown_Multi;
-				if ( !tBind.m_bValMulti )
-				{
-					tBind.m_vValEntries = vValEntries;
-				}
-				F::Binds.AddBind( iBind, tBind );
-			}
-			else
-			{
-				auto cFind = var.Map.find( iModified );
-				if ( cFind != var.Map.end( ) )
-					var.Map.erase( cFind );
-
-				F::Binds.RemoveBind( iModified, false );
-				iBind = -1;
-			}
-		}
-		bool bHovered = false; bLastHovered = false;
-
-		PushTransparent( iBind == DEFAULT_BIND );
-
-		{
-			ImVec2 vOriginalPos = GetCursorPos( );
-
-			SetCursorPos( { GetWindowWidth( ) - H::Draw.Scale( 34 ), H::Draw.Scale( 40 ) } );
-			if ( IconButton( tBind.m_bVisible ? ICON_MD_VISIBILITY : ICON_MD_VISIBILITY_OFF, { 1, 1, 1, -1 }, &bHovered ) )
-				tBind.m_bVisible = !tBind.m_bVisible;
-			bLastHovered = bLastHovered || bHovered;
-
-			SetCursorPos( { GetWindowWidth( ) - H::Draw.Scale( 59 ), H::Draw.Scale( 40 ) } );
-			if ( IconButton( !tBind.m_bNot ? ICON_MD_CODE : ICON_MD_CODE_OFF, { 1, 1, 1, -1 }, &bHovered ) )
-				tBind.m_bNot = !tBind.m_bNot;
-			bLastHovered = bLastHovered || bHovered;
-
-			SetCursorPos( vOriginalPos );
-		}
-
-		FDropdown( "Type", &tBind.m_iType, { "Key", "Class", "Weapon type", "Item slot" }, {}, FDropdown_Left, 0, &bHovered );
-		bLastHovered = bLastHovered || bHovered;
-		switch ( tBind.m_iType )
-		{
-			case BindEnum::Key: tBind.m_iInfo = std::clamp( tBind.m_iInfo, 0, 2 ); FDropdown( "Behavior", &tBind.m_iInfo, { "Hold", "Toggle", "Double click" }, {}, FDropdown_Right, 0, &bHovered ); break;
-			case BindEnum::Class: tBind.m_iInfo = std::clamp( tBind.m_iInfo, 0, 8 ); FDropdown( "Class", &tBind.m_iInfo, { "Scout", "Soldier", "Pyro", "Demoman", "Heavy", "Engineer", "Medic", "Sniper", "Spy" }, {}, FDropdown_Right, 0, &bHovered ); break;
-			case BindEnum::WeaponType: tBind.m_iInfo = std::clamp( tBind.m_iInfo, 0, 2 ); FDropdown( "Weapon type", &tBind.m_iInfo, { "Hitscan", "Projectile", "Melee" }, {}, FDropdown_Right, 0, &bHovered ); break;
-			case BindEnum::ItemSlot: tBind.m_iInfo = std::max( tBind.m_iInfo, 0 ); FDropdown( "Item slot", &tBind.m_iInfo, { "1", "2", "3", "4", "5", "6", "7", "8", "9" }, {}, FDropdown_Right, 0, &bHovered ); break;
-		}
-		bLastHovered = bLastHovered || bHovered;
-
-		if ( tBind.m_iType == 0 )
-		{
-			FKeybind( "Key", tBind.m_iKey, FKeybind_None, { 0, 30 }, 0, &bHovered );
-			bLastHovered = bLastHovered || bHovered;
-		}
-
-		if ( !Disabled && iBind != DEFAULT_BIND && iBind < F::Binds.m_vBinds.size( ) )
-		{
-			var.Map[ iBind ] = val;
-
-			// don't completely override to retain misc info
-			auto& _tBind = F::Binds.m_vBinds[ iBind ];
-			_tBind.m_iType = tBind.m_iType;
-			_tBind.m_iInfo = tBind.m_iInfo;
-			_tBind.m_iKey = tBind.m_iKey;
-			_tBind.m_bVisible = tBind.m_bVisible;
-			_tBind.m_bNot = tBind.m_bNot;
-		}
-
-		DebugDummy( { 0, H::Draw.Scale( 8 ) } );
-	}
-
 	#define WRAPPER(function, type, parameters, arguments)\
 	inline bool function(const char* sLabel, ConfigVar<type>& var, parameters, bool* pHovered = nullptr, std::string sBindOverride = "")\
 	{\
@@ -2655,12 +2525,15 @@ namespace ImGui
 		return bReturn;\
 	}
 
-	#define WRAPPER_ENTRIES(function, type, parameters, arguments, bindparams)\
+	#define WRAPPER_ENTRIES(function, type, parameters, arguments, entryparam, flags )\
 	inline bool function(const char* sLabel, ConfigVar<type>& var, parameters, bool* pHovered = nullptr, std::string sBindOverride = "")\
 	{\
 		auto val = FGet(var, true);\
 		bool bHovered = false;\
 		const bool bReturn = function(sLabel, arguments, &bHovered);\
+		var.m_vEntries = entryparam;\
+		if ( flags & FDropdown_Multi )\
+			var.m_iFlags |= MULTI;\
 		FSet(var, val);\
 		if (pHovered)\
 			*pHovered = bHovered;\
@@ -2700,7 +2573,7 @@ namespace ImGui
 				}\
 				PushTransparent(false);\
 				static bool bLastHovered = false;\
-				DrawBindInfo(var, staticVal, sLower, bNewPopup, bLastHovered, bindparams);\
+				DrawBindInfo(var, staticVal, sLower, bNewPopup, bLastHovered );\
 				val = staticVal;\
 				function(std::format("{}## Bind", sLabel).c_str(), arguments, &bHovered);\
 				bLastHovered = bLastHovered || bHovered;\
@@ -2717,8 +2590,8 @@ namespace ImGui
 	WRAPPER(FSlider, FloatRange_t, VA_LIST(float flMin, float flMax, float flStep = 1.f, const char* fmt = "%.0f", int iFlags = 0), VA_LIST(&val.Min, &val.Max, flMin, flMax, flStep, fmt, iFlags))
 	WRAPPER(FSlider, float, VA_LIST(float flMin, float flMax, float flStep = 1.f, const char* fmt = "%.0f", int iFlags = 0), VA_LIST(&val, flMin, flMax, flStep, fmt, iFlags))
 	WRAPPER(FSlider, int, VA_LIST(int iMin, int iMax, int iStep = 1, const char* fmt = "%d", int iFlags = 0), VA_LIST(&val, iMin, iMax, iStep, fmt, iFlags))
-	WRAPPER_ENTRIES(FDropdown, int, VA_LIST(std::vector<const char*> vEntries, std::vector<int> vValues = {}, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, vValues, iFlags, iSizeOffset), VA_LIST( vEntries, iFlags ) )
-	WRAPPER_ENTRIES(FSDropdown, std::string, VA_LIST(std::vector<const char*> vEntries = {}, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, iFlags, iSizeOffset), VA_LIST( vEntries, iFlags ) )
+	WRAPPER_ENTRIES(FDropdown, int, VA_LIST(std::vector<const char*> vEntries, std::vector<int> vValues = {}, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, vValues, iFlags, iSizeOffset), vEntries, iFlags )
+	WRAPPER_ENTRIES(FSDropdown, std::string, VA_LIST(std::vector<const char*> vEntries = {}, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, iFlags, iSizeOffset), vEntries, iFlags )
 	//WRAPPER(FVDropdown, std::vector<std::string>, VA_LIST(std::vector<std::string> vEntries, int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, vEntries, iFlags, iSizeOffset))
 	WRAPPER(FMDropdown, VA_LIST(std::vector<std::pair<std::string, Color_t>>), VA_LIST(int iFlags = 0, int iSizeOffset = 0), VA_LIST(&val, iFlags, iSizeOffset))
 	WRAPPER(FColorPicker, Color_t, VA_LIST(int iOffset = 0, int iFlags = 0), VA_LIST(&val, iOffset, iFlags))

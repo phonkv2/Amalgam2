@@ -17,6 +17,7 @@ class CVarBase
 public:
 	size_t m_iType;
 	std::string m_sName;
+	std::vector<const char*> m_vEntries = {};
 	int m_iFlags;
 
 	// getter for ConfigVar
@@ -80,6 +81,7 @@ inline ConfigVar<T>::ConfigVar(T value, std::string name, int iFlags)
 #define VISUAL (1 << 0)
 #define NOSAVE (1 << 1)
 #define NOBIND (1 << 2)
+#define MULTI (1 << 3)
 #define DEBUGVAR //NOSAVE
 
 namespace Vars
