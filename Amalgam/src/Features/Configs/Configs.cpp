@@ -378,6 +378,7 @@ bool CConfigs::SaveConfig(const std::string& sConfigName, bool bNotify)
 	if ( Var->As<x>( )->Map.contains( i ) )\
 	{\
 		Bind.m_pVar = Var;\
+		break;\
 	}\
 }
 
