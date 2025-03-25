@@ -2662,7 +2662,36 @@ void CMenu::DrawBinds()
 					if (tBind.m_bNot)
 						sInfo = std::format("not {}", sInfo);
 
-					std::string sStatus = tBind.m_bActive ? "On" : "Off";
+					//std::string sStatus = tBind.m_bActive ? "On" : "Off";
+
+					std::string sStatus = "";
+
+					if ( tBind.m_pVar->m_iType == typeid( bool ).hash_code( ) )
+					{
+						sStatus = tBind.m_pVar->As<bool>( )->Value ? "On" : "Off";
+					}
+					else if ( tBind.m_pVar->m_iType == typeid( int ).hash_code( ) && !tBind.m_bValMulti )
+					{
+						//sliders and dropdowns
+						if ( !tBind.m_vValEntries.empty( ) )
+						{
+							sStatus = tBind.m_vValEntries.at( tBind.m_pVar->As<int>( )->Value );
+						}
+						else
+						{
+							sStatus = std::format( "{}", tBind.m_pVar->As<int>( )->Value );
+						}
+					}
+					else if ( tBind.m_pVar->m_iType == typeid( float ).hash_code( ) )
+					{
+						sStatus = std::format( "{:.2f}", tBind.m_pVar->As<float>( )->Value );
+					}
+					else
+					{
+						//fallback
+						sStatus = tBind.m_bActive ? "On" : "Off";
+					}
+
 					vBinds.push_back({ tBind.m_bActive, tBind.m_sName.c_str(), sType, sInfo, sStatus, iBind, tBind });
 				}
 
