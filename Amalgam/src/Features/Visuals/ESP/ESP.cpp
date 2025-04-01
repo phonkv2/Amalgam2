@@ -368,7 +368,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 					{
 						if (iIndex == I::EngineClient->GetLocalPlayer())
 						{
-							tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("Charging {:.0f}%%", Math::RemapValClamped(pWeapon->As<CTFSniperRifle>()->m_flChargedDamage(), 0.f, 150.f, 0.f, 100.f)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
+							tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("Charging {:.0f}%%", Math::RemapVal(pWeapon->As<CTFSniperRifle>()->m_flChargedDamage(), 0.f, 150.f, 0.f, 100.f)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 							break;
 						}
 						else
@@ -385,7 +385,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 							if (pPlayerDot)
 							{
 								float flChargeTime = std::max(SDK::AttribHookValue(3.f, "mult_sniper_charge_per_sec", pWeapon), 1.5f);
-								tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("Charging {:.0f}%%", Math::RemapValClamped(TICKS_TO_TIME(I::ClientState->m_ClockDriftMgr.m_nServerTick) - pPlayerDot->m_flChargeStartTime() - 0.3f, 0.f, flChargeTime, 0.f, 100.f)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
+								tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("Charging {:.0f}%%", Math::RemapVal(TICKS_TO_TIME(I::ClientState->m_ClockDriftMgr.m_nServerTick) - pPlayerDot->m_flChargeStartTime() - 0.3f, 0.f, flChargeTime, 0.f, 100.f)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 								break;
 							}
 						}
@@ -395,7 +395,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 					case TF_WEAPON_COMPOUND_BOW:
 						if (iIndex == I::EngineClient->GetLocalPlayer())
 						{
-							tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("Charging {:.0f}%%", Math::RemapValClamped(TICKS_TO_TIME(I::ClientState->m_ClockDriftMgr.m_nServerTick) - pWeapon->As<CTFPipebombLauncher>()->m_flChargeBeginTime(), 0.f, 1.f, 0.f, 100.f)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
+							tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("Charging {:.0f}%%", Math::RemapVal(TICKS_TO_TIME(I::ClientState->m_ClockDriftMgr.m_nServerTick) - pWeapon->As<CTFPipebombLauncher>()->m_flChargeBeginTime(), 0.f, 1.f, 0.f, 100.f)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 							break;
 						}
 						tCache.m_vText.emplace_back(ESPTextEnum::Right, "Charging", Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
@@ -427,7 +427,7 @@ void CESP::StoreBuildings(CTFPlayer* pLocal)
 	{
 		auto pBuilding = pEntity->As<CBaseObject>();
 		auto pOwner = pBuilding->m_hBuilder().Get();
-		int iIndex = pOwner ? pOwner->entindex() : 0;
+		int iIndex = pOwner ? pOwner->entindex() : -1;
 
 		if (pOwner)
 		{
@@ -581,11 +581,10 @@ void CESP::StoreProjectiles(CTFPlayer* pLocal)
 			break;
 		}
 		}
+		int iIndex = pOwner ? pOwner->entindex() : -1;
 
 		if (pOwner)
 		{
-			int iIndex = pOwner->entindex();
-
 			if (iIndex == I::EngineClient->GetLocalPlayer())
 			{
 				if (!(Vars::ESP::Projectile.Value & Vars::ESP::ProjectileEnum::Local))
@@ -662,6 +661,13 @@ void CESP::StoreProjectiles(CTFPlayer* pLocal)
 				//case ETFClassID::CTFProjectile_Syringe: szName = "Syringe";
 			}
 			tCache.m_vText.push_back({ ESPTextEnum::Top, szName, H::Color.GetEntityNameColor(pLocal, (pOwner ? pOwner : pEntity), Vars::Colors::Relative.Value), Vars::Menu::Theme::Background.Value });
+		}
+
+		if (Vars::ESP::Projectile.Value & Vars::ESP::ProjectileEnum::Owner && pOwner)
+		{
+			PlayerInfo_t pi{};
+			if (I::EngineClient->GetPlayerInfo(iIndex, &pi))
+				tCache.m_vText.emplace_back(ESPTextEnum::Top, F::PlayerUtils.GetPlayerName(iIndex, pi.name), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 		}
 
 		if (Vars::ESP::Projectile.Value & Vars::ESP::ProjectileEnum::Flags)

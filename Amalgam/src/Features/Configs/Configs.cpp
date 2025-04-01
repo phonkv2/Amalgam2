@@ -240,8 +240,10 @@ void CConfigs::LoadJson(boost::property_tree::ptree& mapTree, std::string sName,
 
 CConfigs::CConfigs()
 {
-	m_sConfigPath = std::filesystem::current_path().string() + "\\Amalgam";
-	m_sVisualsPath = m_sConfigPath + "\\Visuals";
+	m_sConfigPath = std::filesystem::current_path().string() + "\\Amalgam\\";
+	m_sVisualsPath = m_sConfigPath + "Visuals\\";
+	m_sCorePath = m_sConfigPath + "Core\\";
+	m_sMaterialsPath = m_sConfigPath + "Materials\\";
 
 	if (!std::filesystem::exists(m_sConfigPath))
 		std::filesystem::create_directory(m_sConfigPath);
@@ -249,13 +251,11 @@ CConfigs::CConfigs()
 	if (!std::filesystem::exists(m_sVisualsPath))
 		std::filesystem::create_directory(m_sVisualsPath);
 
-	// Create 'Core' folder for Attribute-Changer & Playerlist
-	if (!std::filesystem::exists(m_sConfigPath + "\\Core"))
-		std::filesystem::create_directory(m_sConfigPath + "\\Core");
+	if (!std::filesystem::exists(m_sCorePath))
+		std::filesystem::create_directory(m_sCorePath);
 
-	// Create 'Materials' folder for custom materials
-	if (!std::filesystem::exists(m_sConfigPath + "\\Materials"))
-		std::filesystem::create_directory(m_sConfigPath + "\\Materials");
+	if (!std::filesystem::exists(m_sMaterialsPath))
+		std::filesystem::create_directory(m_sMaterialsPath);
 }
 
 #define IsType(type) var->m_iType == typeid(type).hash_code()
@@ -327,9 +327,10 @@ bool CConfigs::SaveConfig(const std::string& sConfigName, bool bNotify)
 			bindTree2.put("Type", tBind.m_iType);
 			bindTree2.put("Info", tBind.m_iInfo);
 			bindTree2.put("Key", tBind.m_iKey);
+			bindTree2.put("Enabled", tBind.m_bEnabled);
+			bindTree2.put("Visible", tBind.m_bVisible);
 			bindTree2.put("Not", tBind.m_bNot);
 			bindTree2.put("Active", tBind.m_bActive);
-			bindTree2.put("Visible", tBind.m_bVisible);
 			bindTree2.put("Parent", tBind.m_iParent);
 
 			bindTree.put_child(std::to_string(iID), bindTree2);
@@ -356,17 +357,14 @@ bool CConfigs::SaveConfig(const std::string& sConfigName, bool bNotify)
 		}
 		writeTree.put_child("ConVars", varTree);
 
-		write_json(m_sConfigPath + "\\" + sConfigName + m_sConfigExtension, writeTree);
+		write_json(m_sConfigPath + sConfigName + m_sConfigExtension, writeTree);
 		m_sCurrentConfig = sConfigName; m_sCurrentVisuals = "";
 		if (bNotify)
-		{
-			SDK::Output("Amalgam", std::format("Config {} saved", sConfigName).c_str(), { 175, 150, 255, 255 }, true, false, false, true);
-			SDK::Output(std::format("Config {} saved", sConfigName).c_str(), nullptr, {}, false, false, true, false);
-		}
+			SDK::Output("Amalgam", std::format("Config {} saved", sConfigName).c_str(), { 175, 150, 255 }, true, true, true);
 	}
 	catch (...)
 	{
-		SDK::Output("SaveConfig", "Failed", { 175, 150, 255, 255 }, true, false, false, true);
+		SDK::Output("SaveConfig", "Failed", { 175, 150, 255 }, true, true);
 		return false;
 	}
 
@@ -385,7 +383,7 @@ bool CConfigs::SaveConfig(const std::string& sConfigName, bool bNotify)
 bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 {
 	// Check if the config exists
-	if (!std::filesystem::exists(m_sConfigPath + "\\" + sConfigName + m_sConfigExtension))
+	if (!std::filesystem::exists(m_sConfigPath + sConfigName + m_sConfigExtension))
 	{
 		// Save default config if one doesn't yet exist
 		if (sConfigName == std::string("default"))
@@ -400,7 +398,7 @@ bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 		const bool bLoadNosave = GetAsyncKeyState(VK_SHIFT) & 0x8000;
 
 		boost::property_tree::ptree readTree;
-		read_json(m_sConfigPath + "\\" + sConfigName + m_sConfigExtension, readTree);
+		read_json(m_sConfigPath + sConfigName + m_sConfigExtension, readTree);
 		
 		bool bLegacy = false;
 		if (const auto condTree = readTree.get_child_optional("Binds"))
@@ -414,9 +412,10 @@ bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 				if (auto getValue = it.second.get_optional<int>("Type")) { tBind.m_iType = *getValue; }
 				if (auto getValue = it.second.get_optional<int>("Info")) { tBind.m_iInfo = *getValue; }
 				if (auto getValue = it.second.get_optional<int>("Key")) { tBind.m_iKey = *getValue; }
+				if (auto getValue = it.second.get_optional<bool>("Enabled")) { tBind.m_bEnabled = *getValue; }
+				if (auto getValue = it.second.get_optional<bool>("Visible")) { tBind.m_bVisible = *getValue; }
 				if (auto getValue = it.second.get_optional<bool>("Not")) { tBind.m_bNot = *getValue; }
 				if (auto getValue = it.second.get_optional<bool>("Active")) { tBind.m_bActive = *getValue; }
-				if (auto getValue = it.second.get_optional<bool>("Visible")) { tBind.m_bVisible = *getValue; }
 				if (auto getValue = it.second.get_optional<int>("Parent")) { tBind.m_iParent = *getValue; }
 
 				F::Binds.m_vBinds.push_back(tBind);
@@ -437,9 +436,9 @@ bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 				if (auto getValue = it.second.get_optional<int>("Type")) { tBind.m_iType = *getValue; }
 				if (auto getValue = it.second.get_optional<int>("Info")) { tBind.m_iInfo = *getValue; }
 				if (auto getValue = it.second.get_optional<int>("Key")) { tBind.m_iKey = *getValue; }
+				if (auto getValue = it.second.get_optional<bool>("Visible")) { tBind.m_bVisible = *getValue; }
 				if (auto getValue = it.second.get_optional<bool>("Not")) { tBind.m_bNot = *getValue; }
 				if (auto getValue = it.second.get_optional<bool>("Active")) { tBind.m_bActive = *getValue; }
-				if (auto getValue = it.second.get_optional<bool>("Visible")) { tBind.m_bVisible = *getValue; }
 				if (auto getValue = it.second.get_optional<std::string>("Parent"))
 				{
 					auto uHash = FNV1A::Hash32(getValue->c_str());
@@ -500,18 +499,15 @@ bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 			}
 		}
 
-		H::Fonts.Reload(Vars::Menu::Scale.Map[DEFAULT_BIND]);
+		H::Fonts.Reload(Vars::Menu::Scale[DEFAULT_BIND]);
 
 		m_sCurrentConfig = sConfigName; m_sCurrentVisuals = "";
 		if (bNotify)
-		{
-			SDK::Output("Amalgam", std::format("Config {} loaded", sConfigName).c_str(), { 175, 150, 255, 255 }, true, false, false, true);
-			SDK::Output(std::format("Config {} loaded", sConfigName).c_str(), nullptr, {}, false, false, true, false);
-		}
+			SDK::Output("Amalgam", std::format("Config {} loaded", sConfigName).c_str(), { 175, 150, 255 }, true, true, true);
 	}
 	catch (...)
 	{
-		SDK::Output("LoadConfig", "Failed", { 175, 150, 255, 255 }, true, false, false, true);
+		SDK::Output("LoadConfig", "Failed", { 175, 150, 255 }, true, true);
 		return false;
 	}
 
@@ -549,16 +545,13 @@ bool CConfigs::SaveVisual(const std::string& sConfigName, bool bNotify)
 			else SaveMisc(WindowBox_t, writeTree)
 		}
 
-		write_json(m_sConfigPath + "\\Visuals\\" + sConfigName + m_sConfigExtension, writeTree);
+		write_json(m_sVisualsPath + sConfigName + m_sConfigExtension, writeTree);
 		if (bNotify)
-		{
-			SDK::Output("Amalgam", std::format("Visual config {} saved", sConfigName).c_str(), { 175, 150, 255, 255 }, true, false, false, true);
-			SDK::Output(std::format("Visual config {} saved", sConfigName).c_str(), nullptr, {}, false, false, true, false);
-		}
+			SDK::Output("Amalgam", std::format("Visual config {} saved", sConfigName).c_str(), { 175, 150, 255 }, true, true, true);
 	}
 	catch (...)
 	{
-		SDK::Output("SaveVisual", "Failed", { 175, 150, 255, 255 }, true, false, false, true);
+		SDK::Output("SaveVisual", "Failed", { 175, 150, 255 }, true, true);
 		return false;
 	}
 	return true;
@@ -567,7 +560,7 @@ bool CConfigs::SaveVisual(const std::string& sConfigName, bool bNotify)
 bool CConfigs::LoadVisual(const std::string& sConfigName, bool bNotify)
 {
 	// Check if the visual config exists
-	if (!std::filesystem::exists(m_sVisualsPath + "\\" + sConfigName + m_sConfigExtension))
+	if (!std::filesystem::exists(m_sVisualsPath + sConfigName + m_sConfigExtension))
 	{
 		//if (sConfigName == std::string("default"))
 		//	SaveVisual("default");
@@ -579,7 +572,7 @@ bool CConfigs::LoadVisual(const std::string& sConfigName, bool bNotify)
 		const bool bLoadNosave = GetAsyncKeyState(VK_SHIFT) & 0x8000;
 
 		boost::property_tree::ptree readTree;
-		read_json(m_sConfigPath + "\\Visuals\\" + sConfigName + m_sConfigExtension, readTree);
+		read_json(m_sVisualsPath + sConfigName + m_sConfigExtension, readTree);
 
 		for (auto& var : g_Vars)
 		{
@@ -601,14 +594,11 @@ bool CConfigs::LoadVisual(const std::string& sConfigName, bool bNotify)
 
 		m_sCurrentVisuals = sConfigName;
 		if (bNotify)
-		{
-			SDK::Output("Amalgam", std::format("Visual config {} loaded", sConfigName).c_str(), { 175, 150, 255, 255 }, true, false, false, true);
-			SDK::Output(std::format("Visual config {} loaded", sConfigName).c_str(), nullptr, {}, false, false, true, false);
-		}
+			SDK::Output("Amalgam", std::format("Visual config {} loaded", sConfigName).c_str(), { 175, 150, 255 }, true, true, true);
 	}
 	catch (...)
 	{
-		SDK::Output("LoadVisual", "Failed", { 175, 150, 255, 255 }, true, false, false, true);
+		SDK::Output("LoadVisual", "Failed", { 175, 150, 255 }, true, true);
 		return false;
 	}
 	return true;
@@ -623,22 +613,19 @@ void CConfigs::RemoveConfig(const std::string& sConfigName, bool bNotify)
 	{
 		if (FNV1A::Hash32(sConfigName.c_str()) != FNV1A::Hash32Const("default"))
 		{
-			std::filesystem::remove(m_sConfigPath + "\\" + sConfigName + m_sConfigExtension);
+			std::filesystem::remove(m_sConfigPath + sConfigName + m_sConfigExtension);
 
 			LoadConfig("default", false);
 
 			if (bNotify)
-			{
-				SDK::Output("Amalgam", std::format("Config {} deleted", sConfigName).c_str(), { 175, 150, 255, 255 }, true, false, false, true);
-				SDK::Output(std::format("Config {} deleted", sConfigName).c_str(), nullptr, {}, false, false, true, false);
-			}
+				SDK::Output("Amalgam", std::format("Config {} deleted", sConfigName).c_str(), { 175, 150, 255 }, true, true, true);
 		}
 		else
 			ResetConfig(sConfigName);
 	}
 	catch (...)
 	{
-		SDK::Output("RemoveConfig", "Failed", { 175, 150, 255, 255 }, true, false, false, true);
+		SDK::Output("RemoveConfig", "Failed", { 175, 150, 255 }, true, true);
 	}
 }
 
@@ -646,17 +633,14 @@ void CConfigs::RemoveVisual(const std::string& sConfigName, bool bNotify)
 {
 	try
 	{
-		std::filesystem::remove(m_sVisualsPath + "\\" + sConfigName + m_sConfigExtension);
+		std::filesystem::remove(m_sVisualsPath + sConfigName + m_sConfigExtension);
 
 		if (bNotify)
-		{
-			SDK::Output("Amalgam", std::format("Visual config {} deleted", sConfigName).c_str(), { 175, 150, 255, 255 }, true, false, false, true);
-			SDK::Output(std::format("Visual config {} deleted", sConfigName).c_str(), nullptr, {}, false, false, true, false);
-		}
+			SDK::Output("Amalgam", std::format("Visual config {} deleted", sConfigName).c_str(), { 175, 150, 255 }, true, true, true);
 	}
 	catch (...)
 	{
-		SDK::Output("RemoveVisual", "Failed", { 175, 150, 255, 255 }, true, false, false, true);
+		SDK::Output("RemoveVisual", "Failed", { 175, 150, 255 }, true, true);
 	}
 }
 
@@ -689,14 +673,11 @@ void CConfigs::ResetConfig(const std::string& sConfigName, bool bNotify)
 		SaveConfig(sConfigName, false);
 
 		if (bNotify)
-		{
-			SDK::Output("Amalgam", std::format("Config {} reset", sConfigName).c_str(), { 175, 150, 255, 255 }, true, false, false, true);
-			SDK::Output(std::format("Config {} reset", sConfigName).c_str(), nullptr, {}, false, false, true, false);
-		}
+			SDK::Output("Amalgam", std::format("Config {} reset", sConfigName).c_str(), { 175, 150, 255 }, true, true, true);
 	}
 	catch (...)
 	{
-		SDK::Output("ResetConfig", "Failed", { 175, 150, 255, 255 }, true, false, false, true);
+		SDK::Output("ResetConfig", "Failed", { 175, 150, 255 }, true, true);
 	}
 }
 
@@ -727,13 +708,10 @@ void CConfigs::ResetVisual(const std::string& sConfigName, bool bNotify)
 		SaveVisual(sConfigName, false);
 
 		if (bNotify)
-		{
-			SDK::Output("Amalgam", std::format("Visual config {} reset", sConfigName).c_str(), { 175, 150, 255, 255 }, true, false, false, true);
-			SDK::Output(std::format("Visual config {} reset", sConfigName).c_str(), nullptr, {}, false, false, true, false);
-		}
+			SDK::Output("Amalgam", std::format("Visual config {} reset", sConfigName).c_str(), { 175, 150, 255 }, true, true, true);
 	}
 	catch (...)
 	{
-		SDK::Output("ResetVisual", "Failed", { 175, 150, 255, 255 }, true, false, false, true);
+		SDK::Output("ResetVisual", "Failed", { 175, 150, 255 }, true, true);
 	}
 }

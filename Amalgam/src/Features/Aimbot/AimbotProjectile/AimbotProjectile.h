@@ -3,7 +3,7 @@
 
 #include "../AimbotGlobal/AimbotGlobal.h"
 
-Enum(PointType, None = 0, Regular = 1 << 0, Obscured = 1 << 1)
+Enum(PointType, None = 0, Regular = 1 << 0, Obscured = 1 << 1, Multi1 = 1 << 2, Multi2 = 1 << 3)
 
 struct Solution_t
 {
@@ -54,7 +54,7 @@ class CAimbotProjectile
 	void CalculateAngle(const Vec3& vLocalPos, const Vec3& vTargetPos, Info_t& tInfo, int iSimTime, Solution_t& out, bool bAccuracy = true);
 	bool TestAngle(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, Target_t& tTarget, Vec3& vPoint, Vec3& vAngles, int iSimTime, bool bSplash, bool* pHitSolid = nullptr, std::deque<Vec3>* pProjectilePath = nullptr);
 
-	int CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* pWeapon, std::deque<Vec3>* pPlayerPath, std::deque<Vec3>* pProjectilePath, std::vector<DrawBox>* pBoxes, float* pTimeTo);
+	int CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* pWeapon, std::deque<Vec3>* pPlayerPath, std::deque<Vec3>* pProjectilePath, std::vector<DrawBox_t>* pBoxes, float* pTimeTo);
 	bool RunMain(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd);
 
 	Vec3 Aim(Vec3 vCurAngle, Vec3 vToAngle, int iMethod = Vars::Aimbot::General::AimType.Value);

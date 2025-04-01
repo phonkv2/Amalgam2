@@ -23,6 +23,41 @@
 
 namespace Math
 {
+	inline float Lerp(float a, float b, float t)
+	{
+		return a + (b - a) * t;
+	}
+
+	inline float SimpleSpline(float val)
+	{
+		float flSquared = powf(val, 2);
+		return 3 * flSquared - 2 * flSquared * val;
+	}
+
+	inline float RemapVal(float flVal, float a, float b, float c, float d, bool bClamp = true)
+	{
+		if (a == b)
+			return flVal >= b ? d : c;
+
+		float t = (flVal - a) / (b - a);
+		if (bClamp)
+			t = std::clamp(t, 0.f, 1.f);
+
+		return Lerp(c, d, t);
+	}
+
+	inline float SimpleSplineRemapVal(float flVal, float a, float b, float c, float d, bool bClamp = true)
+	{
+		if (a == b)
+			return flVal >= b ? d : c;
+
+		float t = (flVal - a) / (b - a);
+		if (bClamp)
+			t = std::clamp(t, 0.f, 1.f);
+
+		return Lerp(c, d, SimpleSpline(t));
+	}
+
 	inline double FastSqrt(double n)
 	{
 		return std::sqrt(n);
@@ -34,14 +69,14 @@ namespace Math
 		*pCos = std::cos(flRadians);
 	}
 
-	inline float NormalizeAngle(float flAngle)
+	inline float NormalizeAngle(float flAngle, float flRange = 360.f)
 	{
-		return std::isfinite(flAngle) ? std::remainder(flAngle, 360.f) : 0.f;
+		return std::isfinite(flAngle) ? std::remainder(flAngle, flRange) : 0.f;
 	}
 
-	inline float NormalizeRad(float flAngle) noexcept
+	inline float NormalizeRad(float flAngle, float flRange = PI * 2)
 	{
-		return std::isfinite(flAngle) ? std::remainder(flAngle, PI * 2) : 0.f;
+		return std::isfinite(flAngle) ? std::remainder(flAngle, flRange) : 0.f;
 	}
 
 	inline void ClampAngles(Vec3& v)
@@ -57,7 +92,7 @@ namespace Math
 		v.y = NormalizeAngle(v.y);
 	}
 
-	inline float AngleDiffRad(float flAngle1, float flAngle2) noexcept
+	inline float AngleDiffRad(float flAngle1, float flAngle2)
 	{
 		double delta = NormalizeRad(flAngle1 - flAngle2);
 		if (flAngle1 > flAngle2)
@@ -193,17 +228,6 @@ namespace Math
 	{
 		for (auto i = 0; i < 3; i++)
 			vOut[i] = vIn.Dot(mMatrix[i]) + mMatrix[i][3];
-	}
-
-	inline float RemapValClamped(float val, float A, float B, float C, float D)
-	{
-		if (A == B)
-			return val >= B ? D : C;
-
-		float cVal = (val - A) / (B - A);
-		cVal = std::clamp(cVal, 0.f, 1.f);
-
-		return C + (D - C) * cVal;
 	}
 
 	inline Vec3 VelocityToAngles(const Vec3& vDirection)

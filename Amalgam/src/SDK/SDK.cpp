@@ -2,19 +2,20 @@
 
 #include "../Features/EnginePrediction/EnginePrediction.h"
 #include "../Features/Visuals/Notifications/Notifications.h"
+#include "../Features/ImGui/Menu/Menu.h"
 #include <random>
 
 #pragma warning (disable : 6385)
 
-static BOOL CALLBACK TeamFortressWindow(HWND hwnd, LPARAM lParam)
+static BOOL CALLBACK TeamFortressWindow(HWND hWindow, LPARAM lParam)
 {
 	char windowTitle[1024];
-	GetWindowTextA(hwnd, windowTitle, sizeof(windowTitle));
+	GetWindowTextA(hWindow, windowTitle, sizeof(windowTitle));
 	switch (FNV1A::Hash32(windowTitle))
 	{
 	case FNV1A::Hash32Const("Team Fortress 2 - Direct3D 9 - 64 Bit"):
 	case FNV1A::Hash32Const("Team Fortress 2 - Vulkan - 64 Bit"):
-		*reinterpret_cast<HWND*>(lParam) = hwnd;
+		*reinterpret_cast<HWND*>(lParam) = hWindow;
 	}
 
 	return TRUE;
@@ -23,50 +24,95 @@ static BOOL CALLBACK TeamFortressWindow(HWND hwnd, LPARAM lParam)
 
 
 
-void SDK::Output(const char* cFunction, const char* cLog, Color_t cColor, bool bConsole, bool bChat, bool bToast, bool bDebug, int iMessageBox)
+void SDK::Output(const char* cFunction, const char* cLog, Color_t tColor,
+	bool bConsole, bool bDebug, bool bToast, bool bMenu, bool bChat, bool bParty, int iMessageBox,
+	const char* sLeft, const char* sRight)
 {
 	if (cLog)
 	{
 		if (bConsole)
 		{
-			I::CVar->ConsoleColorPrintf(cColor, "[%s] ", cFunction);
+			I::CVar->ConsoleColorPrintf(tColor, "%s%s%s ", sLeft, cFunction, sRight);
 			I::CVar->ConsoleColorPrintf({}, "%s\n", cLog);
 		}
-		if (bChat)
-			I::ClientModeShared->m_pChatElement->ChatPrintf(0, std::format("{}[{}]\x1 {}", cColor.ToHex(), cFunction, cLog).c_str());
-		if (bToast)
-			F::Notifications.Add(std::format("[{}] {}", cFunction, cLog));
 		if (bDebug)
-			OutputDebugString(std::format("[{}] {}\n", cFunction, cLog).c_str());
+			OutputDebugString(std::format("{}{}{} {}\n", sLeft, cFunction, sRight, cLog).c_str());
+		if (bToast)
+			F::Notifications.Add(cLog, Vars::Logging::Lifetime.Value, 0.2f, tColor);
+		if (bMenu)
+			F::Menu.AddOutput(std::format("{}{}{}", sLeft, cFunction, sRight).c_str(), cLog, tColor);
+		if (bChat)
+			I::ClientModeShared->m_pChatElement->ChatPrintf(0, std::format("{}{}{}{}\x1 {}", tColor.ToHex(), sLeft, cFunction, sRight, cLog).c_str());
+		if (bParty)
+			I::TFPartyClient->SendPartyChat(cLog);
 		if (iMessageBox != -1)
 			MessageBox(nullptr, cLog, cFunction, iMessageBox);
 	}
 	else
 	{
 		if (bConsole)
-			I::CVar->ConsoleColorPrintf(cColor, "%s\n", cFunction);
-		if (bChat)
-			I::ClientModeShared->m_pChatElement->ChatPrintf(0, std::format("{}{}\x1", cColor.ToHex(), cFunction).c_str());
-		if (bToast)
-			F::Notifications.Add(std::format("{}", cFunction));
+			I::CVar->ConsoleColorPrintf(tColor, "%s\n", cFunction);
 		if (bDebug)
 			OutputDebugString(std::format("{}\n", cFunction).c_str());
+		if (bToast)
+			F::Notifications.Add(cFunction, Vars::Logging::Lifetime.Value, 0.2f, tColor);
+		if (bMenu)
+			F::Menu.AddOutput("", cFunction, tColor);
+		if (bChat)
+			I::ClientModeShared->m_pChatElement->ChatPrintf(0, std::format("{}{}\x1", tColor.ToHex(), cFunction).c_str());
+		if (bParty)
+			I::TFPartyClient->SendPartyChat(cFunction);
 		if (iMessageBox != -1)
 			MessageBox(nullptr, "", cFunction, iMessageBox);
 	}
 }
 
+void SDK::SetClipboard(std::string sString)
+{
+	if (OpenClipboard(nullptr))
+	{
+		EmptyClipboard();
+
+		if (HGLOBAL hMemory = GlobalAlloc(GMEM_DDESHARE, sString.length() + 1))
+		{
+			if (void* pData = GlobalLock(hMemory))
+			{
+				memset(pData, 0, sString.length() + 1);
+				memcpy(pData, sString.c_str(), sString.length());
+				GlobalUnlock(hMemory);
+				SetClipboardData(CF_TEXT, hMemory);
+			}
+		}
+
+		CloseClipboard();
+	}
+}
+
+std::string SDK::GetClipboard()
+{
+	std::string sString = "";
+	if (OpenClipboard(nullptr))
+	{
+		if (void* pData = GetClipboardData(CF_TEXT))
+			sString = (char*)(pData);
+
+		CloseClipboard();
+	}
+	return sString;
+}
+
 HWND SDK::GetTeamFortressWindow()
 {
-	static HWND hwWindow = nullptr;
-	if (!hwWindow)
-		EnumWindows(TeamFortressWindow, reinterpret_cast<LPARAM>(&hwWindow));
-	return hwWindow;
+	static HWND hWindow = nullptr;
+	if (!hWindow)
+		EnumWindows(TeamFortressWindow, reinterpret_cast<LPARAM>(&hWindow));
+	return hWindow;
 }
 
 bool SDK::IsGameWindowInFocus()
 {
-	return GetForegroundWindow() == GetTeamFortressWindow();
+	HWND hWindow = GetTeamFortressWindow();
+	return hWindow == GetForegroundWindow() || !hWindow;
 }
 
 std::wstring SDK::ConvertUtf8ToWide(const std::string& source)
@@ -460,7 +506,7 @@ int SDK::IsAttacking(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, const CUserCmd* 
 	case TF_WEAPON_GRENADE_STICKY_BALL:
 	{
 		float flCharge = pWeapon->As<CTFPipebombLauncher>()->m_flChargeBeginTime() > 0.f ? flTickBase - pWeapon->As<CTFPipebombLauncher>()->m_flChargeBeginTime() : 0.f;
-		const float flAmount = Math::RemapValClamped(flCharge, 0.f, SDK::AttribHookValue(4.f, "stickybomb_charge_rate", pWeapon), 0.f, 1.f);
+		const float flAmount = Math::RemapVal(flCharge, 0.f, SDK::AttribHookValue(4.f, "stickybomb_charge_rate", pWeapon), 0.f, 1.f);
 		return !(pCmd->buttons & IN_ATTACK) && flAmount > 0.f || flAmount == 1.f;
 	}
 	case TF_WEAPON_CANNON:
@@ -470,7 +516,7 @@ int SDK::IsAttacking(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, const CUserCmd* 
 			return G::CanPrimaryAttack && pCmd->buttons & IN_ATTACK ? 1 : G::Reloading && pCmd->buttons & IN_ATTACK ? 2 : 0;
 
 		float flCharge = pWeapon->As<CTFGrenadeLauncher>()->m_flDetonateTime() > 0.f ? flMortar - (pWeapon->As<CTFGrenadeLauncher>()->m_flDetonateTime() - flTickBase) : 0.f;
-		const float flAmount = Math::RemapValClamped(flCharge, 0.f, SDK::AttribHookValue(0.f, "grenade_launcher_mortar_mode", pWeapon), 0.f, 1.f);
+		const float flAmount = Math::RemapVal(flCharge, 0.f, SDK::AttribHookValue(0.f, "grenade_launcher_mortar_mode", pWeapon), 0.f, 1.f);
 		return !(pCmd->buttons & IN_ATTACK) && flAmount > 0.f || flAmount == 1.f;
 	}
 	case TF_WEAPON_SNIPERRIFLE_CLASSIC:
@@ -522,7 +568,7 @@ int SDK::IsAttacking(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, const CUserCmd* 
 		static auto tf_grapplinghook_max_distance = U::ConVars.FindVar("tf_grapplinghook_max_distance");
 		const float flGrappleDistance = tf_grapplinghook_max_distance ? tf_grapplinghook_max_distance->GetFloat() : 2000.f;
 		Trace(vPos, vPos + vForward * flGrappleDistance, MASK_SOLID, &filter, &trace);
-		return trace.DidHit() && !(trace.surface.flags & 0x0004 /*SURF_SKY*/);
+		return trace.DidHit() && !(trace.surface.flags & SURF_SKY);
 	}
 	case TF_WEAPON_MINIGUN:
 		switch (pWeapon->As<CTFMinigun>()->m_iWeaponState())
@@ -532,6 +578,10 @@ int SDK::IsAttacking(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, const CUserCmd* 
 			if (pWeapon->HasPrimaryAmmoForShot())
 				return G::CanPrimaryAttack && pCmd->buttons & IN_ATTACK ? 1 : G::Reloading && pCmd->buttons & IN_ATTACK ? 2 : 0;
 		}
+		return false;
+	case TF_WEAPON_LUNCHBOX:
+		if (G::PrimaryWeaponType == EWeaponType::PROJECTILE && G::CanSecondaryAttack && pWeapon->HasPrimaryAmmoForShot() && pCmd->buttons & IN_ATTACK2)
+			return 1;
 		return false;
 	case TF_WEAPON_FLAMETHROWER:
 	case TF_WEAPON_FLAME_BALL:
@@ -578,18 +628,26 @@ float SDK::MaxSpeed(CTFPlayer* pPlayer, bool bIncludeCrouch, bool bIgnoreSpecial
 	return flSpeed;
 }
 
+void SDK::FixMovement(CUserCmd* pCmd, const Vec3& vCurAngle, const Vec3& vTargetAngle)
+{
+	bool bCurOOB = fabsf(Math::NormalizeAngle(vCurAngle.x)) > 90.f;
+	bool bTargetOOB = fabsf(Math::NormalizeAngle(vTargetAngle.x)) > 90.f;
+
+	Vec3 vMove = { pCmd->forwardmove, pCmd->sidemove * (bCurOOB ? -1 : 1), pCmd->upmove};
+	float flSpeed = vMove.Length2D();
+	Vec3 vMoveAng = {}; Math::VectorAngles(vMove, vMoveAng);
+
+	float flCurYaw = vCurAngle.y + (bCurOOB ? 180.f : 0.f);
+	float flTargetYaw = vTargetAngle.y + (bTargetOOB ? 180.f : 0.f);
+	float flYaw = DEG2RAD(flTargetYaw - flCurYaw + vMoveAng.y);
+
+	pCmd->forwardmove = cos(flYaw) * flSpeed;
+	pCmd->sidemove = sin(flYaw) * flSpeed * (bTargetOOB ? -1 : 1);
+}
+
 void SDK::FixMovement(CUserCmd* pCmd, const Vec3& vTargetAngle)
 {
-	const Vec3 vMove = { pCmd->forwardmove, pCmd->sidemove, pCmd->upmove };
-
-	Vec3 vMoveAng = {};
-	Math::VectorAngles(vMove, vMoveAng);
-
-	const float flSpeed = vMove.Length2D();
-	const float flYaw = DEG2RAD(vTargetAngle.y - pCmd->viewangles.y + vMoveAng.y);
-
-	pCmd->forwardmove = (cos(flYaw) * flSpeed);
-	pCmd->sidemove = (sin(flYaw) * flSpeed);
+	FixMovement(pCmd, pCmd->viewangles, vTargetAngle);
 }
 
 bool SDK::StopMovement(CTFPlayer* pLocal, CUserCmd* pCmd)
@@ -603,58 +661,53 @@ bool SDK::StopMovement(CTFPlayer* pLocal, CUserCmd* pCmd)
 
 	if (G::Attacking != 1)
 	{
-		const float direction = Math::VelocityToAngles(pLocal->m_vecVelocity() * -1).y;
-		pCmd->viewangles = { 90, direction, 0 };
+		float flDirection = Math::VelocityToAngles(pLocal->m_vecVelocity() * -1).y;
+		pCmd->viewangles = { 90, flDirection, 0 };
 		pCmd->sidemove = 0; pCmd->forwardmove = 0;
 		return true;
 	}
 	else
 	{
-		Vec3 direction = pLocal->m_vecVelocity().toAngle();
-		direction.y = pCmd->viewangles.y - direction.y;
-		const Vec3 negatedDirection = direction.fromAngle() * -pLocal->m_vecVelocity().Length2D();
-		pCmd->forwardmove = negatedDirection.x;
-		pCmd->sidemove = negatedDirection.y;
+		Vec3 vDirection = pLocal->m_vecVelocity().ToAngle();
+		vDirection.y = pCmd->viewangles.y - vDirection.y;
+		Vec3 vNegatedDirection = vDirection.FromAngle() * -pLocal->m_vecVelocity().Length2D();
+		pCmd->forwardmove = vNegatedDirection.x;
+		pCmd->sidemove = vNegatedDirection.y;
 		return false;
 	}
 }
 
-Vec3 SDK::ComputeMove(const CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& a, Vec3& b)
+Vec3 SDK::ComputeMove(const CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& vFrom, Vec3& vTo)
 {
-	const Vec3 diff = (b - a);
-	if (diff.Length() == 0.f)
-		return { 0.f, 0.f, 0.f };
+	const Vec3 vDiff = vTo - vFrom;
+	if (!vDiff.Length())
+		return {};
 
-	const float x = diff.x;
-	const float y = diff.y;
-	const Vec3 vSilent(x, y, 0);
-	Vec3 ang;
-	Math::VectorAngles(vSilent, ang);
-	const float yaw = DEG2RAD(ang.y - pCmd->viewangles.y);
-	const float pitch = DEG2RAD(ang.x - pCmd->viewangles.x);
-	Vec3 move = { cos(yaw) * 450.f, -sin(yaw) * 450.f, -cos(pitch) * 450.f };
+	Vec3 vSilent = { vDiff.x, vDiff.y, 0 };
+	Vec3 vAngle; Math::VectorAngles(vSilent, vAngle);
+	const float flYaw = DEG2RAD(vAngle.y - pCmd->viewangles.y);
+	const float flPitch = DEG2RAD(vAngle.x - pCmd->viewangles.x);
 
-	// Only apply upmove in water
-	if (!(I::EngineTrace->GetPointContents(pLocal->GetEyePosition()) & CONTENTS_WATER))
-		move.z = pCmd->upmove;
-	return move;
+	Vec3 vMove = { cos(flYaw) * 450.f, -sin(flYaw) * 450.f, -cos(flPitch) * 450.f };
+	if (!(I::EngineTrace->GetPointContents(pLocal->GetShootPos()) & CONTENTS_WATER)) // only apply upmove in water
+		vMove.z = pCmd->upmove;
+
+	return vMove;
 }
 
-void SDK::WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& a, Vec3& b, float scale)
+void SDK::WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& vFrom, Vec3& vTo, float flScale)
 {
-	// Calculate how to get to a vector
-	const auto result = ComputeMove(pCmd, pLocal, a, b);
+	const auto vResult = ComputeMove(pCmd, pLocal, vFrom, vTo);
 
-	// Push our move to usercmd
-	pCmd->forwardmove = result.x * scale;
-	pCmd->sidemove = result.y * scale;
-	pCmd->upmove = result.z * scale;
+	pCmd->forwardmove = vResult.x * flScale;
+	pCmd->sidemove = vResult.y * flScale;
+	pCmd->upmove = vResult.z * flScale;
 }
 
-void SDK::WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& pDestination)
+void SDK::WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& vTo, float flScale)
 {
-	Vec3 localPos = pLocal->m_vecOrigin();
-	WalkTo(pCmd, pLocal, localPos, pDestination, 1.f);
+	Vec3 vLocalPos = pLocal->m_vecOrigin();
+	WalkTo(pCmd, pLocal, vLocalPos, vTo, flScale);
 }
 
 

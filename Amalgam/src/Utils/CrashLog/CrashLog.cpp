@@ -3,6 +3,7 @@
 #include "../../Features/Configs/Configs.h"
 
 #include <ImageHlp.h>
+#include <Psapi.h>
 #include <deque>
 #include <sstream>
 #include <fstream>
@@ -48,14 +49,9 @@ static std::deque<Frame> StackTrace(PCONTEXT context)
 		{
 			tFrame.m_pBase = uintptr_t(hBase);
 
-			char buf[MAX_PATH];
-			if (GetModuleFileNameA(hBase, buf, MAX_PATH))
-			{
-				tFrame.m_sModule = std::format("{}", buf);
-				auto find = tFrame.m_sModule.rfind("\\");
-				if (find != std::string::npos)
-					tFrame.m_sModule.replace(0, find + 1, "");
-			}
+			char buffer[MAX_PATH];
+			if (GetModuleBaseName(hProcess, hBase, buffer, sizeof(buffer) / sizeof(char)))
+				tFrame.m_sModule = buffer;
 			else
 				tFrame.m_sModule = std::format("{:#x}", tFrame.m_pBase);
 		}
@@ -99,7 +95,6 @@ static LONG APIENTRY ExceptionFilter(PEXCEPTION_POINTERS ExceptionInfo)
 	static std::unordered_map<LPVOID, bool> mAddresses = {};
 	static bool bException = false;
 
-	// unsure of a way to filter nonfatal exceptions
 	if (ExceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION
 		|| !ExceptionInfo->ExceptionRecord->ExceptionAddress || mAddresses.contains(ExceptionInfo->ExceptionRecord->ExceptionAddress)
 		|| !Vars::Debug::CrashLogging.Value
@@ -144,11 +139,11 @@ static LONG APIENTRY ExceptionFilter(PEXCEPTION_POINTERS ExceptionInfo)
 		ssErrorStream << "\nShift + Enter to skip repetitive exceptions. ";
 	bException = true;
 
-	SDK::Output("Unhandled exception", ssErrorStream.str().c_str(), {}, false, false, false, true, MB_OK | MB_ICONERROR);
+	SDK::Output("Unhandled exception", ssErrorStream.str().c_str(), {}, false, true, false, false, false, false, MB_OK | MB_ICONERROR);
 
 	ssErrorStream << "\n\n\n\n";
 	std::ofstream file;
-	file.open(F::Configs.m_sConfigPath + "\\crash_log.txt", std::ios_base::app);
+	file.open(F::Configs.m_sConfigPath + "crash_log.txt", std::ios_base::app);
 	file << ssErrorStream.str();
 	file.close();
 

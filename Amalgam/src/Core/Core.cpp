@@ -8,7 +8,39 @@
 #include "../Features/ImGui/Menu/Menu.h"
 #include "../Features/Visuals/Visuals.h"
 #include "../SDK/Events/Events.h"
+#include <Psapi.h>
 
+static inline std::string GetProcessName(DWORD dwProcessID)
+{
+	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, dwProcessID);
+	if (!hProcess)
+		return "";
+
+	char buffer[MAX_PATH];
+	if (!GetModuleBaseName(hProcess, nullptr, buffer, sizeof(buffer) / sizeof(char)))
+	{
+		CloseHandle(hProcess);
+		return "";
+	}
+
+	CloseHandle(hProcess);
+	return buffer;
+}
+
+static inline bool CheckDXLevel()
+{
+	auto mat_dxlevel = U::ConVars.FindVar("mat_dxlevel");
+	if (mat_dxlevel->GetInt() < 90)
+	{
+		//const char* sMessage = "You are running with graphics options that Amalgam does not support.\n-dxlevel must be at least 90.";
+		const char* sMessage = "You are running with graphics options that Amalgam does not support.\nIt is recommended for -dxlevel to be at least 90.";
+		U::Core.AppendFailText(sMessage);
+		SDK::Output("Amalgam", sMessage, { 175, 150, 255 }, true, true);
+		//return false;
+	}
+
+	return true;
+}
 
 void CCore::AppendFailText(const char* sMessage)
 {
@@ -18,23 +50,30 @@ void CCore::AppendFailText(const char* sMessage)
 
 void CCore::Load()
 {
-	if (m_bUnload = m_bFailed = !SDK::GetTeamFortressWindow())
+	if (m_bUnload = m_bFailed = FNV1A::Hash32(GetProcessName(GetCurrentProcessId()).c_str()) != FNV1A::Hash32Const("tf_win64.exe"))
 	{
-		AppendFailText("Game window not found");
+		AppendFailText("Invalid process");
 		return;
 	}
-	while (!U::Memory.FindSignature("client.dll", "48 8B 0D ? ? ? ? 48 8B 10 48 8B 19 48 8B C8 FF 92"))
+
+	float flStart = SDK::PlatFloatTime();
+	while (!U::Memory.FindSignature("client.dll", "48 8B 0D ? ? ? ? 48 8B 10 48 8B 19 48 8B C8 FF 92") || !SDK::GetTeamFortressWindow())
 	{
 		Sleep(500);
+		if (m_bUnload = m_bFailed = SDK::PlatFloatTime() - flStart > 60.f)
+		{
+			AppendFailText("Failed to load");
+			return;
+		}
 		if (m_bUnload = m_bFailed = U::KeyHandler.Down(VK_F11, true))
 		{
-			U::Core.AppendFailText("Cancelled load");
+			AppendFailText("Cancelled load");
 			return;
 		}
 	}
 	Sleep(500);
 
-	if (m_bUnload = m_bFailed = !U::Signatures.Initialize() || !U::Interfaces.Initialize())
+	if (m_bUnload = m_bFailed = !U::Signatures.Initialize() || !U::Interfaces.Initialize() || !CheckDXLevel())
 		return;
 	if (m_bUnload = m_bFailed2 = !U::Hooks.Initialize() || !U::BytePatches.Initialize() || !H::Events.Initialize())
 		return;
@@ -44,9 +83,7 @@ void CCore::Load()
 	F::Configs.LoadConfig(F::Configs.m_sCurrentConfig, false);
 	F::Configs.m_bConfigLoaded = true;
 
-
-	SDK::Output("Amalgam", "Loaded", { 175, 150, 255, 255 }, true, false, false, true);
-	SDK::Output("Loaded", nullptr, {}, false, false, true, false);
+	SDK::Output("Amalgam", "Loaded", { 175, 150, 255 }, true, true, true);
 }
 
 void CCore::Loop()
@@ -68,11 +105,11 @@ void CCore::Unload()
 		ssFailStream << "\nCtrl + C to copy. Logged to Amalgam\\fail_log.txt. (1)\n";
 		ssFailStream << "Built @ " __DATE__ ", " __TIME__;
 
-		SDK::Output("Failed to load", ssFailStream.str().c_str(), {}, false, false, false, true, MB_OK | MB_ICONERROR);
+		SDK::Output("Failed to load", ssFailStream.str().c_str(), {}, false, true, false, false, false, false, MB_OK | MB_ICONERROR);
 
 		ssFailStream << "\n\n\n\n";
 		std::ofstream file;
-		file.open(F::Configs.m_sConfigPath + "\\fail_log.txt", std::ios_base::app);
+		file.open(F::Configs.m_sConfigPath + "fail_log.txt", std::ios_base::app);
 		file << ssFailStream.str();
 		file.close();
 
@@ -109,16 +146,16 @@ void CCore::Unload()
 		ssFailStream << "\nCtrl + C to copy. Logged to Amalgam\\fail_log.txt. (2)\n";
 		ssFailStream << "Built @ " __DATE__ ", " __TIME__;
 
-		SDK::Output("Failed to load", ssFailStream.str().c_str(), {}, false, false, false, true, MB_OK | MB_ICONERROR);
+		SDK::Output("Failed to load", ssFailStream.str().c_str(), {}, false, true, false, false, false, false, MB_OK | MB_ICONERROR);
 
 		ssFailStream << "\n\n\n\n";
 		std::ofstream file;
-		file.open(F::Configs.m_sConfigPath + "\\fail_log.txt", std::ios_base::app);
+		file.open(F::Configs.m_sConfigPath + "fail_log.txt", std::ios_base::app);
 		file << ssFailStream.str();
 		file.close();
 
 		return;
 	}
 
-	SDK::Output("Amalgam", "Unloaded", { 175, 150, 255, 255 }, true, false, false, true);
+	SDK::Output("Amalgam", "Unloaded", { 175, 150, 255 }, true, true);
 }

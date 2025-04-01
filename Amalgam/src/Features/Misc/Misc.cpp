@@ -133,7 +133,7 @@ void CMisc::AutoStrafe(CTFPlayer* pLocal, CUserCmd* pCmd)
 		if (fabsf(flDirDelta) > Vars::Misc::Movement::AutoStrafeMaxDelta.Value)
 			break;
 
-		float flTurnScale = Math::RemapValClamped(Vars::Misc::Movement::AutoStrafeTurnScale.Value, 0.f, 1.f, 0.9f, 1.f);
+		float flTurnScale = Math::RemapVal(Vars::Misc::Movement::AutoStrafeTurnScale.Value, 0.f, 1.f, 0.9f, 1.f);
 		float flRotation = DEG2RAD((flDirDelta > 0.f ? -90.f : 90.f) + flDirDelta * flTurnScale);
 		float flCosRot = cosf(flRotation), flSinRot = sinf(flRotation);
 
@@ -145,49 +145,42 @@ void CMisc::AutoStrafe(CTFPlayer* pLocal, CUserCmd* pCmd)
 
 void CMisc::AutoPeek(CTFPlayer* pLocal, CUserCmd* pCmd)
 {
-	static bool bPosPlaced = false;
 	static bool bReturning = false;
-
 	if (Vars::CL_Move::AutoPeek.Value)
 	{
-		const Vec3 localPos = pLocal->GetAbsOrigin();
+		const Vec3 vLocalPos = pLocal->m_vecOrigin();
 
-		// We just started peeking. Save the return position!
-		if (!bPosPlaced)
+		if (G::Attacking && m_bPeekPlaced)
+			bReturning = true;
+		if (!bReturning && !pLocal->m_hGroundEntity())
+			m_bPeekPlaced = false;
+
+		if (!m_bPeekPlaced)
 		{
-			if (pLocal->m_hGroundEntity())
-			{
-				vPeekReturnPos = localPos;
-				bPosPlaced = true;
-			}
+			m_vPeekReturnPos = vLocalPos;
+			m_bPeekPlaced = true;
 		}
 		else
 		{
 			static Timer tTimer = {};
 			if (tTimer.Run(0.7f))
-				H::Particles.DispatchParticleEffect("ping_circle", vPeekReturnPos, {});
+				H::Particles.DispatchParticleEffect("ping_circle", m_vPeekReturnPos, {});
 		}
-
-		// We've just attacked. Let's return!
-		if (G::LastUserCmd->buttons & IN_ATTACK || G::Attacking)
-			bReturning = true;
 
 		if (bReturning)
 		{
-			if (localPos.DistTo(vPeekReturnPos) < 7.f)
+			if (vLocalPos.DistTo(m_vPeekReturnPos) < 8.f)
 			{
 				bReturning = false;
 				return;
 			}
 
-			SDK::WalkTo(pCmd, pLocal, vPeekReturnPos);
+			SDK::WalkTo(pCmd, pLocal, m_vPeekReturnPos);
+			pCmd->buttons &= ~IN_JUMP;
 		}
 	}
 	else
-	{
-		bPosPlaced = bReturning = false;
-		vPeekReturnPos = Vec3();
-	}
+		m_bPeekPlaced = bReturning = false;
 }
 
 void CMisc::MovementLock(CTFPlayer* pLocal, CUserCmd* pCmd)
@@ -200,17 +193,16 @@ void CMisc::MovementLock(CTFPlayer* pLocal, CUserCmd* pCmd)
 		return;
 	}
 
-	static Vec3 vDir = {};
+	static Vec3 vMove = {}, vView = {};
 	if (!bLock)
 	{
 		bLock = true;
-		vDir = Math::RotatePoint({ pCmd->forwardmove * (fmodf(fabsf(pCmd->viewangles.x), 180.f) > 90.f ? -1 : 1), -pCmd->sidemove, 0.f }, {}, { 0, pCmd->viewangles.y, 0 });
-		vDir.z = pCmd->upmove;
+		vMove = { pCmd->forwardmove, pCmd->sidemove, pCmd->upmove };
+		vView = pCmd->viewangles;
 	}
 
-	Vec3 vMove = Math::RotatePoint(vDir, {}, { 0, -pCmd->viewangles.y, 0 });
-	pCmd->forwardmove = vMove.x * (fmodf(fabsf(pCmd->viewangles.x), 180.f) > 90.f ? -1 : 1);
-	pCmd->sidemove = -vMove.y, pCmd->upmove = vDir.z;
+	pCmd->forwardmove = vMove.x, pCmd->sidemove = vMove.y, pCmd->upmove = vMove.z;
+	SDK::FixMovement(pCmd, vView, pCmd->viewangles);
 }
 
 void CMisc::BreakJump(CTFPlayer* pLocal, CUserCmd* pCmd)
@@ -304,15 +296,15 @@ void CMisc::PingReducer()
 	const int iMaxUpdateRate = sv_maxupdaterate ? sv_maxupdaterate->GetInt() : 66;
 
 	const int iTarget = Vars::Misc::Exploits::PingReducer.Value ? Vars::Misc::Exploits::PingTarget.Value : iCmdRate;
-	if (iWishCmdrate != iTarget)
+	if (m_iWishCmdrate != iTarget)
 	{
-		NET_SetConVar cmd("cl_cmdrate", std::to_string(iWishCmdrate = iTarget).c_str());
+		NET_SetConVar cmd("cl_cmdrate", std::to_string(m_iWishCmdrate = iTarget).c_str());
 		pNetChan->SendNetMsg(cmd);
 	}
 
-	if (iWishUpdaterate != iMaxUpdateRate)
+	if (m_iWishUpdaterate != iMaxUpdateRate)
 	{
-		NET_SetConVar cmd("cl_updaterate", std::to_string(iWishUpdaterate = iMaxUpdateRate).c_str());
+		NET_SetConVar cmd("cl_updaterate", std::to_string(m_iWishUpdaterate = iMaxUpdateRate).c_str());
 		pNetChan->SendNetMsg(cmd);
 	}
 }
@@ -409,11 +401,11 @@ void CMisc::FastMovement(CTFPlayer* pLocal, CUserCmd* pCmd)
 		if (!Vars::Misc::Movement::FastStop.Value || !flSpeed)
 			return;
 
-		Vec3 direction = pLocal->m_vecVelocity().toAngle();
-		direction.y = pCmd->viewangles.y - direction.y;
-		const Vec3 negatedDirection = direction.fromAngle() * -flSpeed;
-		pCmd->forwardmove = negatedDirection.x;
-		pCmd->sidemove = negatedDirection.y;
+		Vec3 vDirection = pLocal->m_vecVelocity().ToAngle();
+		vDirection.y = pCmd->viewangles.y - vDirection.y;
+		Vec3 vNegatedDirection = vDirection.FromAngle() * -flSpeed;
+		pCmd->forwardmove = vNegatedDirection.x;
+		pCmd->sidemove = vNegatedDirection.y;
 
 		break;
 	}
@@ -427,13 +419,12 @@ void CMisc::FastMovement(CTFPlayer* pLocal, CUserCmd* pCmd)
 		if (!(pCmd->buttons & (IN_FORWARD | IN_BACK | IN_MOVELEFT | IN_MOVERIGHT)))
 			return;
 
-		const Vec3 vecMove(pCmd->forwardmove, pCmd->sidemove, 0.f);
-		const float flLength = vecMove.Length();
-		Vec3 angMoveReverse;
-		Math::VectorAngles(vecMove * -1.f, angMoveReverse);
+		Vec3 vMove = { pCmd->forwardmove, pCmd->sidemove, 0.f };
+		float flLength = vMove.Length();
+		Vec3 vAngMoveReverse; Math::VectorAngles(vMove * -1.f, vAngMoveReverse);
 		pCmd->forwardmove = -flLength;
 		pCmd->sidemove = 0.f;
-		pCmd->viewangles.y = fmodf(pCmd->viewangles.y - angMoveReverse.y, 360.f);
+		pCmd->viewangles.y = fmodf(pCmd->viewangles.y - vAngMoveReverse.y, 360.f);
 		pCmd->viewangles.z = 270.f;
 		G::PSilentAngles = true;
 
@@ -463,13 +454,16 @@ void CMisc::Event(IGameEvent* pEvent, uint32_t uHash)
 	case FNV1A::Hash32Const("client_disconnect"):
 	case FNV1A::Hash32Const("client_beginconnect"):
 	case FNV1A::Hash32Const("game_newmap"):
-		iWishCmdrate = iWishUpdaterate = -1;
+		m_iWishCmdrate = m_iWishUpdaterate = -1;
 		F::Backtrack.m_flWishInterp = -1.f;
 		[[fallthrough]];
 	case FNV1A::Hash32Const("teamplay_round_start"):
 		G::LineStorage.clear();
 		G::BoxStorage.clear();
 		G::PathStorage.clear();
+		break;
+	case FNV1A::Hash32Const("player_spawn"):
+		m_bPeekPlaced = false;
 	}
 }
 

@@ -8,11 +8,11 @@ MAKE_HOOK(CTFBadgePanel_SetupBadge, S::CTFBadgePanel_SetupBadge(), void,
 	void* rcx, const IMatchGroupDescription* pMatchDesc, /*const*/ LevelInfo_t& levelInfo, const CSteamID& steamID)
 {
 #ifdef DEBUG_HOOKS
-	if (!Vars::Hooks::CTFBadgePanel_SetupBadge.Map[DEFAULT_BIND])
+	if (!Vars::Hooks::CTFBadgePanel_SetupBadge[DEFAULT_BIND])
 		return CALL_ORIGINAL(rcx, pMatchDesc, levelInfo, steamID);
 #endif
 
-	//SDK::Output("SetupBadge", std::format("{}: {}", steamID.GetAccountID(), levelInfo.m_nLevelNum).c_str(), {}, true, false, false, true);
+	//SDK::Output("SetupBadge", std::format("{}: {}", steamID.GetAccountID(), levelInfo.m_nLevelNum).c_str(), {}, true, true);
 
 	if (!Vars::Visuals::UI::StreamerMode.Value)
 		return CALL_ORIGINAL(rcx, pMatchDesc, levelInfo, steamID);
