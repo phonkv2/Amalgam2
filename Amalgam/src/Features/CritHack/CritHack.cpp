@@ -607,7 +607,7 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 				}
 			}
 			else
-				H::Draw.StringOutlined(fFont, x, y += nTall, Vars::Colors::IndicatorTextBad.Value, Vars::Menu::Theme::Background.Value, align, std::format("Deal {} damage", ceilf(m_flDamageTilFlip)).c_str());
+				H::Draw.String(fFont, x, y += nTall, Color_t(255, 150, 150, 255), align, std::format("Deal {} damage", ceilf(m_flDamageTilFlip)).c_str());
 
 			int iCrits = tStorage.m_iAvailableCrits;
 			H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("{}{} / {} potential crits", iCrits, iCrits == 1000 ? "+" : "", tStorage.m_iPotentialCrits).c_str());
@@ -618,18 +618,13 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 				H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Next in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
 			}
 
-			if (!m_bCritBanned && m_flDamageTilFlip)
-			{
-				H::Draw.String(fFont, x, y += nTall, Color_t(150, 255, 150, 255), align, std::format("{} damage", m_flDamageTilFlip).c_str());
-			}
+			if (!m_bCritBanned && iSlot != SLOT_MELEE && m_flDamageTilFlip)
+				H::Draw.String(fFont, x, y += nTall, Color_t(150, 255, 150, 255), align, std::format("{} damage", floor(m_flDamageTilFlip)).c_str());
 
 			if (m_flResyncTime >= I::GlobalVars->curtime)
 			{
 				H::Draw.String(fFont, x, y += nTall, Color_t(255, 150, 150, 255), align, std::format("Damage desync +{}", m_iDamageDiff).c_str());
 			}
-
-			if (!m_bCritBanned && iSlot != SLOT_MELEE && m_flDamageTilFlip)
-				H::Draw.StringOutlined(fFont, x, y += nTall, Vars::Colors::IndicatorTextGood.Value, Vars::Menu::Theme::Background.Value, align, std::format("{} damage", floor(m_flDamageTilFlip)).c_str());
 		}
 		else
 			H::Draw.String(fFont, x, y, Color_t(255, 255, 255, 255), align, "Calculating");

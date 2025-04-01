@@ -233,7 +233,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 				{
 					int iKDR = iKills / std::max(iDeaths, 1);
 					if (iKDR >= 10)
-						tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("High KD [{} / {}]", iKills, iDeaths), Vars::Colors::IndicatorTextMid.Value, Vars::Menu::Theme::Background.Value);
+						tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("High KD [{} / {}]", iKills, iDeaths), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 				}
 			}
 
@@ -270,7 +270,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 					pPlayer->InCond(TF_COND_INVULNERABLE_CARD_EFFECT))
 					tCache.m_vText.emplace_back(ESPTextEnum::Right, "Uber", Vars::Colors::IndicatorTextBad.Value, Vars::Menu::Theme::Background.Value);
 				else if (pPlayer->InCond(TF_COND_PHASE))
-					tCache.m_vText.emplace_back(ESPTextEnum::Right, "Bonk", Vars::Colors::IndicatorTextMid.Value, Vars::Menu::Theme::Background.Value);
+					tCache.m_vText.emplace_back(ESPTextEnum::Right, "Bonk", Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 
 				/* vaccinator effects */
 				if (pPlayer->InCond(TF_COND_MEDIGUN_UBER_BULLET_RESIST) || pPlayer->InCond(TF_COND_BULLET_IMMUNE))
@@ -294,7 +294,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 					tCache.m_vText.emplace_back(ESPTextEnum::Right, "Conch", Vars::Colors::IndicatorTextBad.Value, Vars::Menu::Theme::Background.Value);
 
 				//if (pPlayer->InCond(TF_COND_BLASTJUMPING))
-				//	tCache.m_vText.emplace_back(ESPTextEnum::Right, "Blastjump", Vars::Colors::IndicatorTextMid.Value, Vars::Menu::Theme::Background.Value);
+				//	tCache.m_vText.emplace_back(ESPTextEnum::Right, "Blastjump", Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 
 				if (pPlayer->InCond(TF_COND_RUNE_STRENGTH))
 					tCache.m_vText.emplace_back(ESPTextEnum::Right, "Strength", Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
