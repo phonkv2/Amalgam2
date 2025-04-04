@@ -701,8 +701,8 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 		{
 			RenderLine(Line[i - 1], Line[i], Color, bZBuffer);
 
-			static bool shouldDrawTicks = false;  // Stores decision for the entire path
-			static bool isDecisionMade = false;   // Ensures we analyze only once
+			static bool shouldDrawTicks = false;
+			static bool isDecisionMade = false;
 
 			// Reset decision-making at the start
 			if (i == 1) {
@@ -710,92 +710,51 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 				isDecisionMade = false;
 			}
 
-			int totalPoints = Line.size();
-			int sampleCount = std::max(7, static_cast<int>(totalPoints / 3.5));  // Convert float to int
-
-			// Analyze the first 30% of the path to determine if it is curving
-			if (!isDecisionMade && i < sampleCount)  // Still within the first 30% of the path
+			// Balanced curve detection using first 3 points
+			if (!isDecisionMade && i == 3 && Line.size() >= 3)
 			{
-				float totalRotation = 0.0f;
+				Vec3 vStart = Line[0];
+				Vec3 vMid = Line[1];
+				Vec3 vEnd = Line[2];
 
-				for (int j = 2; j <= sampleCount; j++)
+				Vec3 vPrevDir = (vMid - vStart);
+				Vec3 vCurrDir = (vEnd - vMid);
+
+				vPrevDir.z = 0;
+				vCurrDir.z = 0;
+
+				// Reasonable minimum movement check
+				if (vPrevDir.Length() >= 0.003f && vCurrDir.Length() >= 0.003f)
 				{
-					if (j >= totalPoints) break;  // Prevent accessing out of bounds
-
-					Vec3 vStart = Line[j - 2];
-					Vec3 vMid = Line[j - 1];
-					Vec3 vEnd = Line[j];
-
-					Vec3 vPrevDir = vMid - vStart;
-					Vec3 vCurrDir = vEnd - vMid;
-
-					vPrevDir.z = 0;
-					vCurrDir.z = 0;
-
-					if (vPrevDir.Length() < 0.004f || vCurrDir.Length() < 0.004f)
-						continue;  // Skip if movement is too small
-
 					vPrevDir.Normalize();
 					vCurrDir.Normalize();
 
-					// Use cross product to measure rotation direction in 2D (XY plane)
-					float rotationAmount = vPrevDir.x * vCurrDir.y - vPrevDir.y * vCurrDir.x;
+					// Calculate curvature
+					float curvature = fabs(vPrevDir.x * vCurrDir.y - vPrevDir.y * vCurrDir.x);
 
-					totalRotation += fabs(rotationAmount);  // Accumulate rotation changes
+					// Balanced threshold - detects real curves but ignores slight wobbles
+					shouldDrawTicks = (curvature > 0.003f);
 				}
 
-				float avgRotation = totalRotation / sampleCount;
-
-				// **More Sensitive Threshold (30% more sensitive)**
-				float adaptiveThreshold = std::max(0.0018f, 0.0055f - (0.0003f * sampleCount));
-
-				shouldDrawTicks = (avgRotation > adaptiveThreshold);
-
-				// **New Fix**: Apply tick lines immediately in the first 30% if curving is detected
-				if (shouldDrawTicks)
-				{
-					Vec3& vStart = Line[i - 1];
-					Vec3& vEnd = Line[i];
-
-					Vec3 vPrevDir = Line[i - 1] - Line[i - 2];
-					Vec3 vCurrDir = vEnd - vStart;
-
-					vPrevDir.z = 0;
-					vCurrDir.z = 0;
-
-					vPrevDir.Normalize();
-					vCurrDir.Normalize();
-
-					// Draw tick lines immediately in the first 30% if a curve is detected
-					Vec3 vDir = vCurrDir * Vars::Visuals::Simulation::SeparatorLength.Value;
-					vDir = Math::RotatePoint(vDir, {}, { 0, 90, 0 });
-					RenderLine(vEnd, vEnd + vDir, Color, bZBuffer);
-				}
-
-				isDecisionMade = true;  // Lock the decision
+				isDecisionMade = true;
 			}
 
-			if (shouldDrawTicks)  // Apply the decision to the entire path
+			// Draw straight tick lines (like Separators style) if curve was detected
+			if (shouldDrawTicks && !(i % Vars::Visuals::Simulation::SeparatorSpacing.Value))
 			{
-				if (!(i % Vars::Visuals::Simulation::SeparatorSpacing.Value))
-				{
-					Vec3& vStart = Line[i - 1];
-					Vec3& vEnd = Line[i];
+				Vec3& vStart = Line[i - 1];
+				Vec3& vEnd = Line[i];
 
-					Vec3 vPrevDir = Line[i - 1] - Line[i - 2];
-					Vec3 vCurrDir = vEnd - vStart;
+				// Calculate direction (but keep tick lines straight, not following curve)
+				Vec3 vDir = vEnd - vStart;
+				vDir.z = 0;
+				vDir.Normalize();
 
-					vPrevDir.z = 0;
-					vCurrDir.z = 0;
+				// Rotate 90 degrees for perpendicular tick
+				vDir = Math::RotatePoint(vDir * Vars::Visuals::Simulation::SeparatorLength.Value, {}, { 0, 90, 0 });
 
-					vPrevDir.Normalize();
-					vCurrDir.Normalize();
-
-					// Draw separator lines since we determined the path is curving
-					Vec3 vDir = vCurrDir * Vars::Visuals::Simulation::SeparatorLength.Value;
-					vDir = Math::RotatePoint(vDir, {}, { 0, 90, 0 });
-					RenderLine(vEnd, vEnd + vDir, Color, bZBuffer);
-				}
+				// Draw straight tick line
+				RenderLine(vEnd, vEnd + vDir, Color, bZBuffer);
 			}
 			break;
 		}
