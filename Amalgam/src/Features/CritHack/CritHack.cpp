@@ -251,7 +251,7 @@ void CCritHack::CanFireCritical(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 	if (m_bCritBanned)
 		m_flDamageTilFlip = flNormalizedDamage / flCritChance + flNormalizedDamage * 2 - m_iAllDamage;
 	else
-		m_flDamageTilFlip = 3 * (flNormalizedDamage - flCritChance * (flNormalizedDamage + m_iAllDamage - m_iCritDamage)) / (flCritChance - 1);
+		m_flDamageTilFlip = ( ( flCritChance * flNormalizedDamage - flCritChance * m_iCritDamage + flCritChance * nTotalDamage - flNormalizedDamage ) / flCritChance ) / TF_DAMAGE_CRIT_MULTIPLIER;
 }
 
 void CCritHack::IsAllowedToWithdrawFromCritBucketHandler(float flDamage) { m_iAllDamage = flDamage; }
