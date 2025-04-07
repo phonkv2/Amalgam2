@@ -56,35 +56,30 @@ void CVisuals::DrawTicks(CTFPlayer* pLocal)
 		int iChoke = std::max(I::ClientState->chokedcommands - (F::AntiAim.YawOn() ? F::AntiAim.AntiAimTicks() : 0), 0);
 		int iTicks = std::clamp(F::Ticks.m_iShiftedTicks + iChoke, 0, F::Ticks.m_iMaxShift);
 		float flRatio = float(iTicks) / F::Ticks.m_iMaxShift;
-		int iSizeX = H::Draw.Scale(90, Scale_Round), iSizeY = H::Draw.Scale(7, Scale_Round); // Narrower (width reduced to 90) and slightly thicker (height increased to 7)
+		int iSizeX = H::Draw.Scale(90, Scale_Round), iSizeY = H::Draw.Scale(6, Scale_Round); // Now 6 pixels tall (middle ground)
 		int iPosX = dtPos.x - iSizeX / 2, iPosY = dtPos.y + fFont.m_nTall + H::Draw.Scale(4) + 1;
 
 		// Draw tick count text
 		H::Draw.String(fFont, dtPos.x, dtPos.y + 2, Vars::Menu::Theme::Active.Value, ALIGN_TOP, std::format("{} / {}", iTicks, F::Ticks.m_iMaxShift).c_str());
 
 		// Draw the black outline of the progress bar (1 pixel thick)
-		// Adjust the outline to be 1 pixel above and to the left of the progress bar
-		H::Draw.Line(iPosX - 1, iPosY - 1, iPosX + iSizeX, iPosY - 1, Color_t(0, 0, 0, 255)); // Top line (1 pixel above)
+		H::Draw.Line(iPosX - 1, iPosY - 1, iPosX + iSizeX, iPosY - 1, Color_t(0, 0, 0, 255)); // Top line
 		H::Draw.Line(iPosX + iSizeX, iPosY - 1, iPosX + iSizeX, iPosY + iSizeY, Color_t(0, 0, 0, 255)); // Right line
 		H::Draw.Line(iPosX + iSizeX, iPosY + iSizeY, iPosX - 1, iPosY + iSizeY, Color_t(0, 0, 0, 255)); // Bottom line
-		H::Draw.Line(iPosX - 1, iPosY + iSizeY, iPosX - 1, iPosY - 1, Color_t(0, 0, 0, 255)); // Left line (1 pixel to the left)
+		H::Draw.Line(iPosX - 1, iPosY + iSizeY, iPosX - 1, iPosY - 1, Color_t(0, 0, 0, 255)); // Left line
 
 		// Draw the progress bar based on ratio
 		if (flRatio > 0.0f)
 		{
-			int progressSizeX = iSizeX * flRatio; // Progress bar width based on ratio
-			int progressSizeY = iSizeY;          // Progress bar height matches the outline
+			int progressSizeX = iSizeX * flRatio;
+			int progressSizeY = iSizeY;
 
-			// Choose color based on readiness
 			Color_t barColor = F::Ticks.m_iWait ? Color_t(0xAD, 0xBA, 0xC7, 255) : Vars::Menu::Theme::Accent.Value;
-
-			// Draw the progress bar inside the outline
-			H::Draw.FillRect(iPosX, iPosY, progressSizeX, progressSizeY, barColor); // Squared progress bar
+			H::Draw.FillRect(iPosX, iPosY, progressSizeX, progressSizeY, barColor);
 		}
 	}
 	else
 	{
-		// Draw speedhack text
 		H::Draw.String(fFont, dtPos.x, dtPos.y + 2, Vars::Menu::Theme::Active.Value, ALIGN_TOP, std::format("Speedhack x{}", Vars::CL_Move::SpeedFactor.Value).c_str());
 	}
 }
@@ -711,7 +706,7 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 			}
 
 			// Balanced curve detection using first 3 points
-			if (!isDecisionMade && i == 3 && Line.size() >= 3)
+			if (!isDecisionMade && i == 3 && Line.size() >= 5)
 			{
 				Vec3 vStart = Line[0];
 				Vec3 vMid = Line[1];
@@ -733,7 +728,7 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 					float curvature = fabs(vPrevDir.x * vCurrDir.y - vPrevDir.y * vCurrDir.x);
 
 					// Balanced threshold - detects real curves but ignores slight wobbles
-					shouldDrawTicks = (curvature > 0.003f);
+					shouldDrawTicks = (curvature > 0.002f);
 				}
 
 				isDecisionMade = true;
