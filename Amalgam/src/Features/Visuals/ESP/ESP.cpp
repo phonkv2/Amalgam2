@@ -33,13 +33,9 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 		auto pPlayer = pEntity->As<CTFPlayer>();
 		int iIndex = pPlayer->entindex();
 
-		bool bLocal = iIndex == I::EngineClient->GetLocalPlayer();
-		bool bSpectate = iObserverMode == OBS_MODE_FIRSTPERSON || iObserverMode == OBS_MODE_THIRDPERSON;
-		bool bTarget = bSpectate && pObserverTarget == pPlayer;
-
-		if (bLocal || bTarget)
+		if (pLocal->m_iObserverMode() == OBS_MODE_FIRSTPERSON ? pLocal->m_hObserverTarget().Get() == pPlayer : iIndex == I::EngineClient->GetLocalPlayer())
 		{
-			if (!(Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Local) || (!bSpectate ? !I::Input->CAM_IsThirdPerson() && bLocal : iObserverMode == OBS_MODE_FIRSTPERSON && bTarget))
+			if (!(Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Local) || !I::Input->CAM_IsThirdPerson())
 				continue;
 		}
 		else
@@ -205,7 +201,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 				tCache.m_vText.emplace_back(ESPTextEnum::Bottom, SDK::ConvertWideToUTF8(S::CEconItemView_GetItemName.Call<const wchar_t*>(pCurItemData)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 		}
 
-		if (Vars::Debug::Info.Value && !pPlayer->IsDormant() && !bLocal)
+		if (Vars::Debug::Info.Value && !pPlayer->IsDormant() && pPlayer->entindex() != I::EngineClient->GetLocalPlayer())
 		{
 			int iAverage = TIME_TO_TICKS(F::MoveSim.GetPredictedDelta(pPlayer));
 			int iCurrent = H::Entities.GetChoke(iIndex);
@@ -213,13 +209,13 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 		}
 
 		{
-			if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::LagCompensation && !pPlayer->IsDormant() && !bLocal)
+			if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::LagCompensation && !pPlayer->IsDormant() && pPlayer != pLocal)
 			{
 				if (H::Entities.GetLagCompensation(iIndex))
 					tCache.m_vText.emplace_back(ESPTextEnum::Right, "Lagcomp", Vars::Colors::IndicatorTextBad.Value, Vars::Menu::Theme::Background.Value);
 			}
 
-			if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Ping && pResource && !bLocal)
+			if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Ping && pResource && pPlayer != pLocal)
 			{
 				auto pNetChan = I::EngineClient->GetNetChannelInfo();
 				if (pNetChan && !pNetChan->IsLoopback())
@@ -230,7 +226,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 				}
 			}
 
-			if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::KDR && pResource && !bLocal)
+			if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::KDR && pResource && pPlayer != pLocal)
 			{
 				int iKills = pResource->m_iScore(iIndex), iDeaths = pResource->m_iDeaths(iIndex);
 				if (iKills >= 20)
@@ -377,7 +373,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 					case TF_WEAPON_SNIPERRIFLE_CLASSIC:
 					case TF_WEAPON_SNIPERRIFLE_DECAP:
 					{
-						if (bLocal)
+						if (iIndex == I::EngineClient->GetLocalPlayer())
 						{
 							tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("Charging {:.0f}%%", Math::RemapVal(pWeapon->As<CTFSniperRifle>()->m_flChargedDamage(), 0.f, 150.f, 0.f, 100.f)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 							break;
@@ -404,7 +400,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 						break;
 					}
 					case TF_WEAPON_COMPOUND_BOW:
-						if (bLocal)
+						if (iIndex == I::EngineClient->GetLocalPlayer())
 						{
 							tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("Charging {:.0f}%%", Math::RemapVal(TICKS_TO_TIME(I::ClientState->m_ClockDriftMgr.m_nServerTick) - pWeapon->As<CTFPipebombLauncher>()->m_flChargeBeginTime(), 0.f, 1.f, 0.f, 100.f)), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 							break;

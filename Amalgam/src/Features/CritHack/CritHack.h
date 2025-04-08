@@ -10,7 +10,7 @@ struct WeaponStorage_t
 	int m_iDefIndex = -1;
 	float m_flMultCritChance = 1.f;
 
-	float m_flDamage = 0.f;
+	float m_flDamage = -1.f;
 	float m_flCost = 0.f;
 	int m_iAvailableCrits = 0;
 	int m_iPotentialCrits = 0;
@@ -18,6 +18,21 @@ struct WeaponStorage_t
 
 	std::deque<int> m_vCritCommands = {};
 	std::deque<int> m_vSkipCommands = {};
+
+	bool m_bActive = false;
+};
+
+struct HealthHistory_t
+{
+	int m_iNewHealth = 0;
+	int m_iOldHealth = 0;
+
+	struct HealthStorage_t
+	{
+		int m_iOldHealth = 0;
+		float m_flTime = 0.f;
+	};
+	std::unordered_map<int, HealthStorage_t> m_mHistory = {};
 };
 
 class CCritHack
@@ -28,8 +43,6 @@ private:
 	bool IsCritCommand(int iSlot, int iIndex, float flMultCritChance, const i32 command_number, const bool bCrit = true, const bool bSafe = true);
 	u32 DecryptOrEncryptSeed(int iSlot, int iIndex, const u32 uSeed);
 
-	void Resync(CTFPlayer* pLocal);
-
 	void GetTotalCrits(CTFPlayer* pLocal, CTFWeaponBase* pWeapon);
 	void CanFireCritical(CTFPlayer* pLocal, CTFWeaponBase* pWeapon);
 	bool WeaponCanCrit(CTFWeaponBase* pWeapon, bool bWeaponOnly = false);
@@ -37,23 +50,25 @@ private:
 	void ResetWeapons(CTFPlayer* pLocal);
 	void Reset();
 
-	int m_iBoostedDamage = 0;
-	int m_iMeleeDamage = 0;
+	void StoreHealthHistory(int iIndex, int iHealth, bool bDamage = false);
+
+	int m_iFillStart = 0;
+
 	int m_iCritDamage = 0;
-	int m_iAllDamage = 0;
-	int m_iDamageDiff = 0;
-	float m_flResyncTime = 0.f;
-	std::unordered_map<int, int> m_mHealthStorage = {};
+	int m_iRangedDamage = 0;
+	std::unordered_map<int, HealthHistory_t> m_mHealthHistory = {};
+
+	int m_iMeleeDamage = 0;
+	int m_iResourceDamage = 0;
+	int m_iDesyncDamage = 0;
 
 	bool m_bCritBanned = false;
 	float m_flDamageTilFlip = 0;
 	float m_flCritChance = 0.f;
-	float m_flObservedCritChance = 0.f;
 	int m_iWishRandomSeed = 0;
 
 public:
 	void Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd);
-	void IsAllowedToWithdrawFromCritBucketHandler(float flDamage);
 	bool CalcIsAttackCriticalHandler(CTFPlayer* pLocal, CTFWeaponBase* pWeapon);
 	void Event(IGameEvent* pEvent, uint32_t uHash, CTFPlayer* pLocal);
 	void Store();
