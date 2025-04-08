@@ -803,6 +803,8 @@ void CESP::StoreObjective(CTFPlayer* pLocal)
 
 void CESP::StoreWorld()
 {
+	const Color_t whiteColor = Color_t(255, 255, 255, 255);
+
 	if (Vars::ESP::Draw.Value & Vars::ESP::DrawEnum::NPCs)
 	{
 		for (auto pEntity : H::Entities.GetGroup(EGroupType::WORLD_NPC))
@@ -820,7 +822,7 @@ void CESP::StoreWorld()
 			case ETFClassID::CZombie: szName = "Skeleton"; break;
 			}
 
-			tCache.m_vText.push_back({ ESPTextEnum::Top, szName, Vars::Colors::NPC.Value, Vars::Menu::Theme::Background.Value });
+			tCache.m_vText.push_back({ ESPTextEnum::Top, szName, whiteColor, Vars::Menu::Theme::Background.Value });
 		}
 	}
 
@@ -830,7 +832,7 @@ void CESP::StoreWorld()
 		{
 			WorldCache& tCache = m_mWorldCache[pEntity];
 
-			tCache.m_vText.push_back({ ESPTextEnum::Top, "Health", Vars::Colors::Health.Value, Vars::Menu::Theme::Background.Value });
+			tCache.m_vText.push_back({ ESPTextEnum::Top, "Health", whiteColor, Vars::Menu::Theme::Background.Value });
 		}
 	}
 
@@ -840,7 +842,7 @@ void CESP::StoreWorld()
 		{
 			WorldCache& tCache = m_mWorldCache[pEntity];
 
-			tCache.m_vText.push_back({ ESPTextEnum::Top, "Ammo", Vars::Colors::Ammo.Value, Vars::Menu::Theme::Background.Value });
+			tCache.m_vText.push_back({ ESPTextEnum::Top, "Ammo", whiteColor, Vars::Menu::Theme::Background.Value });
 		}
 	}
 
@@ -850,7 +852,7 @@ void CESP::StoreWorld()
 		{
 			WorldCache& tCache = m_mWorldCache[pEntity];
 
-			tCache.m_vText.push_back({ ESPTextEnum::Top, "Money", Vars::Colors::Money.Value, Vars::Menu::Theme::Background.Value });
+			tCache.m_vText.push_back({ ESPTextEnum::Top, "Money", whiteColor, Vars::Menu::Theme::Background.Value });
 		}
 	}
 
@@ -873,15 +875,11 @@ void CESP::StoreWorld()
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_precision.mdl"): szName = "Precision"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_reflect.mdl"): szName = "Reflect"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_regen.mdl"): szName = "Regeneration"; break;
-				//case FNV1A::Hash32Const("models/pickups/pickup_powerup_resistance.mdl"): szName = "11"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_strength.mdl"): szName = "Strength"; break;
-				//case FNV1A::Hash32Const("models/pickups/pickup_powerup_strength_arm.mdl"): szName = "13"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_supernova.mdl"): szName = "Supernova"; break;
-				//case FNV1A::Hash32Const("models/pickups/pickup_powerup_thorns.mdl"): szName = "15"; break;
-				//case FNV1A::Hash32Const("models/pickups/pickup_powerup_uber.mdl"): szName = "16"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_vampire.mdl"): szName = "Vampire";
 			}
-			tCache.m_vText.push_back({ ESPTextEnum::Top, szName, Vars::Colors::Powerup.Value, Vars::Menu::Theme::Background.Value });
+			tCache.m_vText.push_back({ ESPTextEnum::Top, szName, whiteColor, Vars::Menu::Theme::Background.Value });
 		}
 	}
 
@@ -891,7 +889,7 @@ void CESP::StoreWorld()
 		{
 			WorldCache& tCache = m_mWorldCache[pEntity];
 
-			tCache.m_vText.push_back({ ESPTextEnum::Top, pEntity->GetClassID() == ETFClassID::CTFPumpkinBomb ? "Pumpkin Bomb" : "Bomb", Vars::Colors::Halloween.Value, Vars::Menu::Theme::Background.Value });
+			tCache.m_vText.push_back({ ESPTextEnum::Top, pEntity->GetClassID() == ETFClassID::CTFPumpkinBomb ? "Pumpkin Bomb" : "Bomb", whiteColor, Vars::Menu::Theme::Background.Value });
 		}
 	}
 
@@ -901,7 +899,7 @@ void CESP::StoreWorld()
 		{
 			WorldCache& tCache = m_mWorldCache[pEntity];
 
-			tCache.m_vText.push_back({ ESPTextEnum::Top, "Spellbook", Vars::Colors::Halloween.Value, Vars::Menu::Theme::Background.Value });
+			tCache.m_vText.push_back({ ESPTextEnum::Top, "Spellbook", whiteColor, Vars::Menu::Theme::Background.Value });
 		}
 	}
 
@@ -911,7 +909,7 @@ void CESP::StoreWorld()
 		{
 			WorldCache& tCache = m_mWorldCache[pEntity];
 
-			tCache.m_vText.push_back({ ESPTextEnum::Top, "Gargoyle", Vars::Colors::Halloween.Value, Vars::Menu::Theme::Background.Value });
+			tCache.m_vText.push_back({ ESPTextEnum::Top, "Gargoyle", whiteColor, Vars::Menu::Theme::Background.Value });
 		}
 	}
 }
