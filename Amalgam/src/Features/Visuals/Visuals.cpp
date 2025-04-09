@@ -698,9 +698,9 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 			}
 
 			// ===== CONFIGURABLE SETTINGS ===== //
-			const int POINTS_TO_ANALYZE = 4;    // Analyze first X points (2, 3, 5, etc.)
-			const float SENSITIVITY = 0.002f;    // Threshold for curvature detection
-			const float MIN_MOVEMENT = 0.002f;   // Ignore tiny movements below this length
+			const int POINTS_TO_ANALYZE = 3;     // Analyze first X points
+			const float SENSITIVITY = 0.003f;    // Curvature threshold
+			const float MIN_MOVEMENT = 0.003f;   // Minimum movement to consider
 			// ================================= //
 
 			// Curve detection (only runs once)
@@ -709,7 +709,6 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 				float totalCurvature = 0.0f;
 				int validSegments = 0;
 
-				// Analyze each segment between the first X points
 				for (int j = 1; j < POINTS_TO_ANALYZE; j++)
 				{
 					Vec3 vPrev = Line[j - 1];
@@ -722,36 +721,32 @@ void CVisuals::DrawPath(std::deque<Vec3>& Line, Color_t Color, int iStyle, bool 
 					vDir1.z = 0;
 					vDir2.z = 0;
 
-					// Skip if movement is too small
 					if (vDir1.Length() < MIN_MOVEMENT || vDir2.Length() < MIN_MOVEMENT)
 						continue;
 
 					vDir1.Normalize();
 					vDir2.Normalize();
 
-					// Measure curvature (cross product in 2D)
 					float curvature = fabs(vDir1.x * vDir2.y - vDir1.y * vDir2.x);
 					totalCurvature += curvature;
 					validSegments++;
 				}
 
-				// Only decide if we have valid data
-				if (validSegments > 0)
-				{
-					float avgCurvature = totalCurvature / validSegments;
-					shouldDrawTicks = (avgCurvature > SENSITIVITY);
+				if (validSegments > 0) {
+					shouldDrawTicks = (totalCurvature / validSegments > SENSITIVITY);
 				}
-
 				isDecisionMade = true;
 			}
 
-			// Draw straight tick lines (if curve detected)
+			// Draw straight tick lines (identical to Separators style)
 			if (shouldDrawTicks && !(i % Vars::Visuals::Simulation::SeparatorSpacing.Value))
 			{
 				Vec3& vStart = Line[i - 1];
 				Vec3& vEnd = Line[i];
 
-				Vec3 vDir = (vEnd - vStart).Normalized(); // Straight tick direction
+				Vec3 vDir = vEnd - vStart;
+				vDir.z = 0;
+				vDir.Normalize();
 				vDir = Math::RotatePoint(vDir * Vars::Visuals::Simulation::SeparatorLength.Value, {}, { 0, 90, 0 });
 				RenderLine(vEnd, vEnd + vDir, Color, bZBuffer);
 			}
