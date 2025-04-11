@@ -1773,11 +1773,6 @@ void CMenu::MenuSettings(int iTab)
 		break;
 		// Binds
 	case 1:
-		if (Section("Settings", true))
-		{
-			FToggle( "Bind window title", Vars::Menu::BindWindowTitle, FToggle_Left );
-			FToggle("Menu shows binds", Vars::Menu::MenuShowsBinds, FToggle_Right);
-		} EndSection();
 		if (Section("Binds"))
 		{
 			static int iBind = DEFAULT_BIND;
@@ -1821,37 +1816,13 @@ void CMenu::MenuSettings(int iTab)
 					if (tBind.m_iType == 0)
 						FKeybind("Key", tBind.m_iKey, FButton_None, { 0, 40 }, -96);
 
-					// create/modify button
-					bool bCreate = false, bClear = false, bParent = true;
-					if (tBind.m_iParent != DEFAULT_BIND)
-						bParent = F::Binds.m_vBinds.size() > tBind.m_iParent;
-
-					SetCursorPos({ GetWindowWidth() - H::Draw.Scale(96), H::Draw.Scale(56) });
-					PushDisabled(!(bParent && (tBind.m_iType == BindEnum::Key ? tBind.m_iKey : true)));
-					{
-						bCreate = FButton("##CreateButton", FButton_None, { 40, 40 });
-					}
-					PopDisabled();
-					SetCursorPos({ GetWindowWidth() - H::Draw.Scale(84), H::Draw.Scale(76) });
-					bool bMatch = iBind != DEFAULT_BIND && F::Binds.m_vBinds.size() > iBind;
-					if (bParent && (tBind.m_iType == BindEnum::Key ? tBind.m_iKey : true))
-						IconImage(bMatch ? ICON_MD_SETTINGS : ICON_MD_ADD);
-					else
-					{
-						PushTransparent(true);
-						IconImage(bMatch ? ICON_MD_SETTINGS : ICON_MD_ADD);
-						PopTransparent();
-					}
-
-					// clear button
+					// Only keep clear button
 					SetCursorPos({ GetWindowWidth() - H::Draw.Scale(48), H::Draw.Scale(56) });
-					bClear = FButton("##ClearButton", FButton_None, { 40, 40 });
+					bool bClear = FButton("##ClearButton", FButton_None, { 40, 40 });
 					SetCursorPos({ GetWindowWidth() - H::Draw.Scale(36), H::Draw.Scale(76) });
 					IconImage(ICON_MD_CLEAR);
 
-					if (bCreate)
-						F::Binds.AddBind(iBind, tBind);
-					if (bCreate || bClear)
+					if (bClear)
 					{
 						iBind = DEFAULT_BIND;
 						tBind = {};
@@ -1930,14 +1901,14 @@ void CMenu::MenuSettings(int iTab)
 						{
 							ImColor tColor = F::Render.Background1p5L;
 							GetWindowDrawList()->AddRectFilled(vDrawPos, { vDrawPos.x + flWidth, vDrawPos.y + flHeight }, tColor, H::Draw.Scale(3));
-						
+
 							tColor = ColorToVec((VecToColor(F::Render.Background1p5)).Lerp({ 127, 127, 127 }, 1.f / 9, LerpEnum::NoAlpha));
 							GetWindowDrawList()->AddRect(vDrawPos, { vDrawPos.x + flWidth, vDrawPos.y + flHeight }, tColor, H::Draw.Scale(3), ImDrawFlags_None, H::Draw.Scale());
 						}
 
 						// text
 						if (x > 3)
-						{	// don't indent too much
+						{   // don't indent too much
 							auto sText = std::format("-> {}", x);
 							SetCursorPos({ vOriginalPos.x - FCalcTextSize(sText.c_str()).x - H::Draw.Scale(10), vOriginalPos.y + H::Draw.Scale(7) });
 							FText(sText.c_str());
@@ -1947,7 +1918,7 @@ void CMenu::MenuSettings(int iTab)
 						PushTransparent(!F::Binds.WillBeEnabled(_iBind), true);
 
 						SetCursorPos({ vOriginalPos.x + H::Draw.Scale(10), vOriginalPos.y + H::Draw.Scale(7) });
-						FText(TruncateText(_tBind.m_sName, flTextWidth* (1.f / 3) - H::Draw.Scale(20)).c_str());
+						FText(TruncateText(_tBind.m_sName, flTextWidth * (1.f / 3) - H::Draw.Scale(20)).c_str());
 
 						SetCursorPos({ vOriginalPos.x + flTextWidth * (1.f / 3), vOriginalPos.y + H::Draw.Scale(7) });
 						FText(sType.c_str());
@@ -1961,12 +1932,6 @@ void CMenu::MenuSettings(int iTab)
 						SetCursorPos({ vOriginalPos.x + flWidth - H::Draw.Scale(iOffset += 25), vOriginalPos.y + H::Draw.Scale(6) });
 						bool bDelete = IconButton(ICON_MD_DELETE);
 
-						SetCursorPos({ vOriginalPos.x + flWidth - H::Draw.Scale(iOffset += 25), vOriginalPos.y + H::Draw.Scale(6) });
-						bool bEdit = IconButton(ICON_MD_EDIT);
-
-						SetCursorPos({ vOriginalPos.x + flWidth - H::Draw.Scale(iOffset += 25), vOriginalPos.y + H::Draw.Scale(6) });
-						bool bNot = IconButton(!_tBind.m_bNot ? ICON_MD_CODE : ICON_MD_CODE_OFF);
-
 						PushTransparent(Transparent || !_tBind.m_bVisible, true);
 						SetCursorPos({ vOriginalPos.x + flWidth - H::Draw.Scale(iOffset += 25), vOriginalPos.y + H::Draw.Scale(6) });
 						bool bVisibility = IconButton(_tBind.m_bVisible ? ICON_MD_VISIBILITY : ICON_MD_VISIBILITY_OFF);
@@ -1974,6 +1939,9 @@ void CMenu::MenuSettings(int iTab)
 
 						SetCursorPos({ vOriginalPos.x + flWidth - H::Draw.Scale(iOffset += 25), vOriginalPos.y + H::Draw.Scale(6) });
 						bool bEnable = IconButton(_tBind.m_bEnabled ? ICON_MD_TOGGLE_ON : ICON_MD_TOGGLE_OFF);
+
+						SetCursorPos({ vOriginalPos.x + flWidth - H::Draw.Scale(iOffset += 25), vOriginalPos.y + H::Draw.Scale(6) });
+						bool bNot = IconButton(!_tBind.m_bNot ? ICON_MD_CODE : ICON_MD_CODE_OFF);
 
 						SetCursorPos(vOriginalPos);
 						bool bClicked = Button(std::format("##{}", _iBind).c_str(), { flWidth, flHeight });
@@ -2027,14 +1995,27 @@ void CMenu::MenuSettings(int iTab)
 
 							EndPopup();
 						}
-						if (bEdit)
-							CurrentBind = CurrentBind != _iBind ? _iBind : DEFAULT_BIND;
 						if (bEnable)
+						{
 							_tBind.m_bEnabled = !_tBind.m_bEnabled;
+							F::Binds.m_vBinds[_iBind] = _tBind; // Update the bind immediately
+						}
 						if (bVisibility)
+						{
 							_tBind.m_bVisible = !_tBind.m_bVisible;
+							F::Binds.m_vBinds[_iBind] = _tBind; // Update the bind immediately
+						}
 						if (bNot)
+						{
 							_tBind.m_bNot = !_tBind.m_bNot;
+							F::Binds.m_vBinds[_iBind] = _tBind; // Update the bind immediately
+						}
+
+						// Update bind properties when editing in the panel
+						if (iBind == _iBind)
+						{
+							F::Binds.m_vBinds[_iBind] = tBind;
+						}
 
 						y = getBinds(_iBind, x + 1, y);
 					}
