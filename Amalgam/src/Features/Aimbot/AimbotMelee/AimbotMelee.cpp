@@ -476,6 +476,7 @@ void CAimbotMelee::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd
 
 	for (auto& tTarget : vTargets)
 	{
+		G::Target = { tTarget.m_pEntity->entindex(), I::GlobalVars->tickcount };
 		const auto iResult = CanHit(tTarget, pLocal, pWeapon, vEyePos, pRecordMap[tTarget.m_pEntity->entindex()]);
 		if (!iResult) continue;
 		if (iResult == 2)
@@ -485,7 +486,6 @@ void CAimbotMelee::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd
 			break;
 		}
 
-		G::Target = { tTarget.m_pEntity->entindex(), I::GlobalVars->tickcount };
 		G::AimPosition = { tTarget.m_vPos, I::GlobalVars->tickcount };
 
 		if (Vars::Aimbot::General::AutoShoot.Value && pWeapon->m_flSmackTime() < 0.f)

@@ -763,6 +763,7 @@ void CAimbotHitscan::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pC
 
 	for (auto& tTarget : vTargets)
 	{
+		G::Target = { tTarget.m_pEntity->entindex(), I::GlobalVars->tickcount };
 		if (nWeaponID == TF_WEAPON_MEDIGUN && pWeapon->As<CWeaponMedigun>()->m_hHealingTarget().Get() == tTarget.m_pEntity)
 		{
 			if (G::LastUserCmd->buttons & IN_ATTACK)
@@ -779,7 +780,6 @@ void CAimbotHitscan::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pC
 			break;
 		}
 
-		G::Target = { tTarget.m_pEntity->entindex(), I::GlobalVars->tickcount };
 		G::AimPosition = { tTarget.m_vPos, I::GlobalVars->tickcount };
 
 		bool bShouldFire = ShouldFire(pLocal, pWeapon, pCmd, tTarget);

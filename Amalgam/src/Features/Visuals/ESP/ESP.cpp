@@ -1011,8 +1011,8 @@ void CESP::DrawPlayers()
 				break;
 			case ESPTextEnum::Health:
 			{
-				// Calculate the position for the HP text
-				int healthBarCenterX = x - H::Draw.Scale(6) + 1 / 2; // Center of the health bar horizontally
+				const int healthBarWidthLocal = H::Draw.Scale(-5); // Define it here with same value as above
+				int healthBarCenterX = x - H::Draw.Scale(6) + (healthBarWidthLocal / 2) - H::Draw.Scale(1); // Center minus 1-2 pixels
 				int healthTextY = y + h - h * std::min(tCache.m_flHealth, 1.f); // Follow the health bar's height
 
 				// Draw the text centered horizontally and aligned with the health bar's height
@@ -1106,8 +1106,8 @@ void CESP::DrawBuildings()
 				break;
 			case ESPTextEnum::Health:
 			{
-				// Calculate the position for the HP text
-				int healthBarCenterX = x - H::Draw.Scale(6) + 1 / 2; // Center of the health bar horizontally
+				const int healthBarWidthLocal = H::Draw.Scale(-5); // Define it here with same value as above
+				int healthBarCenterX = x - H::Draw.Scale(6) + (healthBarWidthLocal / 2) - H::Draw.Scale(1); // Center minus 1-2 pixels
 				int healthTextY = y + h - h * std::min(tCache.m_flHealth, 1.f); // Follow the health bar's height
 
 				// Draw the text centered horizontally and aligned with the health bar's height
