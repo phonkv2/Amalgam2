@@ -7,7 +7,7 @@
 #include "../../Visuals/Visuals.h"
 
 //#define SPLASH_DEBUG1 // normal splash visualization
-//#define SPLASH_DEBUG2 // obstructed splash visualization
+//#define SPLASH_DEBUG2 //obstructed splash visualization
 //#define SPLASH_DEBUG3 // points visualization
 //#define SPLASH_DEBUG4 // trace visualization
 //#define SPLASH_DEBUG5 // trace count
@@ -1664,6 +1664,8 @@ bool CAimbotProjectile::RunMain(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUser
 #endif
 	for (auto& tTarget : vTargets)
 	{
+		G::Target = { tTarget.m_pEntity->entindex(), I::GlobalVars->tickcount };
+
 		float flTimeTo = 0.f; std::deque<Vec3> vPlayerPath, vProjectilePath; std::vector<DrawBox_t> vBoxes = {};
 		const int iResult = CanHit(tTarget, pLocal, pWeapon, &vPlayerPath, &vProjectilePath, &vBoxes, &flTimeTo);
 		if (!iResult)
@@ -1696,7 +1698,6 @@ bool CAimbotProjectile::RunMain(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUser
 			break;
 		}
 
-		G::Target = { tTarget.m_pEntity->entindex(), I::GlobalVars->tickcount };
 		G::AimPosition = { tTarget.m_vPos, I::GlobalVars->tickcount };
 
 		if (Vars::Aimbot::General::AutoShoot.Value)

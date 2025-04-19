@@ -136,18 +136,10 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 				tCache.m_flHealth = std::clamp(flHealth / flMaxHealth, 0.f, 1.f);
 		}
 
-		// Health Text Display (Show normal health when not overhealed, otherwise show overheal)
 		if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::HealthText)
 		{
-			int overhealAmount = flHealth - flMaxHealth;
-			if (overhealAmount > 0)
 			{
-				// Show only the overheal amount if the player is overhealed
-				tCache.m_vText.push_back({ ESPTextEnum::Health, std::format("+{}", overhealAmount), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value });
-			}
-			else
-			{
-				// Show normal health if not overhealed
+			
 				tCache.m_vText.push_back({ ESPTextEnum::Health, std::format("{}", flHealth), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value });
 			}
 		}
@@ -160,7 +152,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 				tCache.m_flUber = std::clamp(pMediGun->As<CWeaponMedigun>()->m_flChargeLevel(), 0.f, 1.f);
 				tCache.m_bUberBar = Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::UberBar;
 				if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::UberText)
-					tCache.m_vText.push_back({ ESPTextEnum::Uber, std::format("{:.0f}%%", tCache.m_flUber * 100.f), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value });
+					tCache.m_vText.push_back({ ESPTextEnum::Uber, std::format("{:.0f}", tCache.m_flUber * 100.f), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value });
 			}
 		}
 
@@ -933,8 +925,7 @@ void CESP::DrawPlayers()
 	const int nTall = fFont.m_nTall;
 	const auto& fFontSide = H::Fonts.GetFont(FONT_ESP_FLAG);
 	const int nTallSide = fFontSide.m_nTall;
-	const auto& fFontHP = H::Fonts.GetFont(FONT_ESP_HP);
-	const int nTallHP = fFontHP.m_nTall;
+
 	for (auto& [pEntity, tCache] : m_mPlayerCache)
 	{
 		float x, y, w, h;
@@ -973,33 +964,31 @@ void CESP::DrawPlayers()
 
 		if (tCache.m_bHealthBar)
 		{
+			const int healthBarWidth = H::Draw.Scale(2);
 			if (tCache.m_flHealth > 1.f)
 			{
-				// Overhealed: Cap the health bar at full height and set color to white
-				Color_t cColor = { 255, 255, 255, 255 }; // White color
-				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, 1, h, 1.f, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
+				Color_t cColor = { 255, 255, 255, 255 };
+				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, healthBarWidth, h, 1.f, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
 			}
 			else if (tCache.m_flHealth > 0.5f)
 			{
-				// Mid health range: Lerp between "IndicatorGood" and "IndicatorMid"
-				float midLerpFactor = (tCache.m_flHealth - 0.5f) * 2.f;  // Normalize to 0-1
+				float midLerpFactor = (tCache.m_flHealth - 0.5f) * 2.f;
 				Color_t cColor = Vars::Colors::IndicatorMid.Value.Lerp(Vars::Colors::IndicatorGood.Value, midLerpFactor);
-				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, 1, h, tCache.m_flHealth, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
+				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, healthBarWidth, h, tCache.m_flHealth, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
 			}
 			else
 			{
-				// Low health range: Lerp between "IndicatorMid" and "IndicatorBad"
-				float lowLerpFactor = tCache.m_flHealth * 2.f;  // Normalize to 0-1
+				float lowLerpFactor = tCache.m_flHealth * 2.f;
 				Color_t cColor = Vars::Colors::IndicatorBad.Value.Lerp(Vars::Colors::IndicatorMid.Value, lowLerpFactor);
-				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, 1, h, tCache.m_flHealth, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
+				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, healthBarWidth, h, tCache.m_flHealth, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
 			}
-
 			lOffset += H::Draw.Scale(6);
 		}
 
 		if (tCache.m_bUberBar)
 		{
-			H::Draw.FillRectPercent(x, y + h + H::Draw.Scale(4), w, H::Draw.Scale(1, Scale_Round), tCache.m_flUber, Vars::Colors::IndicatorMisc.Value);
+			const int uberBarHeight = H::Draw.Scale(2);
+			H::Draw.FillRectPercent(x, y + h + H::Draw.Scale(4), w, uberBarHeight, tCache.m_flUber, Vars::Colors::IndicatorMisc.Value);
 			bOffset += H::Draw.Scale(6);
 		}
 
@@ -1077,21 +1066,24 @@ void CESP::DrawBuildings()
 
 		if (tCache.m_bHealthBar)
 		{
-			if (tCache.m_flHealth > 0.5f)
+			const int healthBarWidth = H::Draw.Scale(2);
+			if (tCache.m_flHealth > 1.f)
 			{
-				// Mid health range: Lerp between "IndicatorGood" and "IndicatorMid"
-				float midLerpFactor = (tCache.m_flHealth - 0.5f) * 2.f;  // Normalize to 0-1
+				Color_t cColor = { 255, 255, 255, 255 };
+				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, healthBarWidth, h, 1.f, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
+			}
+			else if (tCache.m_flHealth > 0.5f)
+			{
+				float midLerpFactor = (tCache.m_flHealth - 0.5f) * 2.f;
 				Color_t cColor = Vars::Colors::IndicatorMid.Value.Lerp(Vars::Colors::IndicatorGood.Value, midLerpFactor);
-				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, 1, h, tCache.m_flHealth, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
+				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, healthBarWidth, h, tCache.m_flHealth, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
 			}
 			else
 			{
-				// Low health range: Lerp between "IndicatorMid" and "IndicatorBad"
-				float lowLerpFactor = tCache.m_flHealth * 2.f;  // Normalize to 0-1
+				float lowLerpFactor = tCache.m_flHealth * 2.f;
 				Color_t cColor = Vars::Colors::IndicatorBad.Value.Lerp(Vars::Colors::IndicatorMid.Value, lowLerpFactor);
-				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, 1, h, tCache.m_flHealth, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
+				H::Draw.FillRectPercent(x - H::Draw.Scale(6), y, healthBarWidth, h, tCache.m_flHealth, cColor, { 0, 0, 0, 255 }, ALIGN_BOTTOM, true);
 			}
-
 			lOffset += H::Draw.Scale(6);
 		}
 
