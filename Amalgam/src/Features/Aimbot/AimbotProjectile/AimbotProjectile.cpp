@@ -7,7 +7,7 @@
 #include "../../Visuals/Visuals.h"
 
 //#define SPLASH_DEBUG1 // normal splash visualization
-//#define SPLASH_DEBUG2 //obstructed splash visualization
+//#define SPLASH_DEBUG2 // obstructed splash visualization
 //#define SPLASH_DEBUG3 // points visualization
 //#define SPLASH_DEBUG4 // trace visualization
 //#define SPLASH_DEBUG5 // trace count
