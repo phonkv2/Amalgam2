@@ -1,5 +1,4 @@
 #include "Color.h"
-
 #include "../../Vars.h"
 #include "../../../Features/Players/PlayerUtils.h"
 
@@ -13,6 +12,58 @@ Color_t CColor::GetTeamColor(int iLocalTeam, int iTargetTeam, bool bRelative)
 		{
 		case TF_TEAM_RED: return Vars::Colors::TeamRed.Value;
 		case TF_TEAM_BLUE: return Vars::Colors::TeamBlu.Value;
+		}
+	}
+
+	return { 255, 255, 255, 255 };
+}
+
+// Add this function
+Color_t CColor::GetEntityNameColor(CTFPlayer* pLocal, CBaseEntity* pEntity, bool bRelative)
+{
+	int iLocalTeam = pLocal->m_iTeamNum();
+	int iTargetTeam = pEntity->m_iTeamNum();
+
+	if (pEntity == pLocal)
+	{
+		return Vars::Colors::LocalName.Value;
+	}
+	else if (pEntity->entindex() == G::AimTarget.m_iEntIndex )
+	{
+		return Vars::Colors::TargetName.Value;
+	}
+
+	if (pEntity->IsPlayer())
+	{
+		if (pEntity->As<CTFPlayer>()->IsFriend())
+		{
+			return Vars::Colors::FriendName.Value;
+		}
+		else
+		{
+			if (bRelative)
+				return iLocalTeam == iTargetTeam ? Vars::Colors::TeamName.Value : Vars::Colors::EnemyName.Value;
+			else
+			{
+				switch (iTargetTeam)
+				{
+				case 2: return Vars::Colors::TeamRedName.Value;
+				case 3: return Vars::Colors::TeamBluName.Value;
+				}
+			}
+		}
+	}
+	else
+	{
+		if (bRelative)
+			return iLocalTeam == iTargetTeam ? Vars::Colors::TeamName.Value : Vars::Colors::EnemyName.Value;
+		else
+		{
+			switch (iTargetTeam)
+			{
+			case 2: return Vars::Colors::TeamRedName.Value;
+			case 3: return Vars::Colors::TeamBluName.Value;
+			}
 		}
 	}
 
@@ -35,19 +86,20 @@ Color_t CColor::GetEntityDrawColor(CTFPlayer* pLocal, CBaseEntity* pEntity, bool
 		}
 		else if (H::Entities.IsFriend(pPlayer->entindex()))
 		{
-			out = F::PlayerUtils.m_vTags[F::PlayerUtils.TagToIndex(FRIEND_TAG)].Color;
+			//out = F::PlayerUtils.m_vTags[F::PlayerUtils.TagToIndex(FRIEND_TAG)].Color;
+			out = Vars::Colors::Friend.Value;
 			if (pType) *pType = 3;
 		}
-		else if (H::Entities.InParty(pPlayer->entindex()))
+		/*else if (H::Entities.InParty(pPlayer->entindex()))
 		{
 			out = F::PlayerUtils.m_vTags[F::PlayerUtils.TagToIndex(PARTY_TAG)].Color;
 			if (pType) *pType = 4;
-		}
-		else if (auto pTag = F::PlayerUtils.GetSignificantTag(pPlayer->entindex()))
+		}*/
+		/*/else if (auto pTag = F::PlayerUtils.GetSignificantTag(pPlayer->entindex()))
 		{
 			out = pTag->Color;
 			if (pType) *pType = 5;
-		}
+		}*/
 	}
 
 	if (pTarget && pTarget->entindex() == G::AimTarget.m_iEntIndex)

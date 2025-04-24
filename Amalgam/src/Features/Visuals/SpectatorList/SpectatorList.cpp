@@ -104,7 +104,7 @@ void CSpectatorList::Draw(CTFPlayer* pLocal)
 	}
 
 	std::string sName = pTarget != pLocal ? F::PlayerUtils.GetPlayerName(pTarget->entindex(), pi.name) : "You";
-	H::Draw.StringOutlined(fFont, x, y, Vars::Menu::Theme::Accent.Value, Vars::Menu::Theme::Background.Value, align, std::format("Spectating {}:", sName).c_str());
+	H::Draw.String(fFont, x, y, Vars::Menu::Theme::Accent.Value, align, std::format("Spectating {}:", sName).c_str());
 	for (auto& Spectator : m_vSpectators)
 	{
 		y += nTall;

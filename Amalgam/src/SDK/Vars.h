@@ -17,6 +17,7 @@ class CVarBase
 public:
 	size_t m_iType;
 	std::string m_sName;
+	std::vector<const char*> m_vEntries = {};
 	int m_iFlags;
 
 	// getter for ConfigVar
@@ -42,16 +43,8 @@ public:
 	T Default;
 	T Value;
 	std::unordered_map<int, T> Map;
-	ConfigVar(T value, std::string name, int iFlags = 0)
-	{
-		Default = value;
-		Value = value;
-		Map[DEFAULT_BIND] = value;
-		m_iType = typeid(T).hash_code();
-		m_sName = name;
-		m_iFlags = iFlags;
-		G::Vars.push_back(this);
-	}
+	ConfigVar(T value, std::string name, int iFlags = 0);
+	ConfigVar(T value, std::string name, std::vector<const char*> Entries, int iFlags = 0);
 
 	inline T& operator[](int i)
 	{
@@ -62,6 +55,33 @@ public:
 		return Map.contains(i);
 	}
 };
+
+inline std::vector<CVarBase*> g_Vars;
+
+template<class T>
+inline ConfigVar<T>::ConfigVar(T value, std::string name, int iFlags)
+{
+	Default = value;
+	Value = value;
+	Map[DEFAULT_BIND] = value;
+	m_iType = typeid(T).hash_code();
+	m_sName = name;
+	m_iFlags = iFlags;
+	g_Vars.push_back(this);
+}
+
+template<class T>
+inline ConfigVar<T>::ConfigVar( T value, std::string name, std::vector<const char*> Entries, int iFlags )
+{
+	Default = value;
+	Value = value;
+	Map[ DEFAULT_BIND ] = value;
+	m_iType = typeid( T ).hash_code( );
+	m_sName = name;
+	g_Vars.push_back( this );
+	m_iFlags = iFlags;
+	m_vEntries = Entries;
+}
 
 #define NAMESPACE_BEGIN(name)\
 	namespace name {\
@@ -81,15 +101,16 @@ public:
 	inline ConfigVar<decltype(value)> name = { value, GetNamespace() + GetSubname() + std::string(#name), __VA_ARGS__ };
 #define Enum(name, ...)\
 	namespace name##Enum { enum name##Enum { __VA_ARGS__ }; };
-#define CVarEnum(name, value, flags, ...)\
-	CVar(name, value, flags)\
+#define CVarEnum(name, value, flags, entries, ...)\
+	CVar(name, value, entries, flags)\
 	Enum(name, __VA_ARGS__)
 
 #define NONE 0
 #define VISUAL (1 << 0)
 #define NOSAVE (1 << 1)
 #define NOBIND (1 << 2)
-#define DEBUGVAR NOSAVE
+#define MULTI (1 << 3)
+#define DEBUGVAR NONE
 
 namespace Vars
 {
@@ -103,7 +124,7 @@ namespace Vars
 		CVar(BindsDisplay, DragBox_t(100, 100), NOBIND)
 		CVar(MenuShowsBinds, false, NOBIND)
 
-		CVarEnum(Indicators, 0b00000, NONE, Ticks = 1 << 0, CritHack = 1 << 1, Spectators = 1 << 2, Ping = 1 << 3, Conditions = 1 << 4, SeedPrediction = 1 << 5)
+		CVarEnum( Indicators, 0b00000, MULTI, VA_LIST( { "Ticks", "Crit hack", "Spectators", "Ping", "Conditions", "Seed prediction" } ), Ticks = 1 << 0, CritHack = 1 << 1, Spectators = 1 << 2, Ping = 1 << 3, Conditions = 1 << 4, SeedPrediction = 1 << 5 )
 		//CVar(SpectatorAvatars, false, VISUAL)
 
 		CVar(TicksDisplay, DragBox_t(), NOBIND)
@@ -127,12 +148,20 @@ namespace Vars
 	NAMESPACE_BEGIN(Colors)
 		CVar(FOVCircle, Color_t(255, 255, 255, 100), VISUAL)
 		CVar(Relative, false, VISUAL)
-		CVar(TeamRed, Color_t(225, 60, 60, 255), VISUAL)
-		CVar(TeamBlu, Color_t(75, 175, 225, 255), VISUAL)
-		CVar(Enemy, Color_t(225, 60, 60, 255), VISUAL)
-		CVar(Team, Color_t(75, 175, 225, 255), VISUAL)
-		CVar(Local, Color_t(255, 255, 255, 255), VISUAL)
-		CVar(Target, Color_t(255, 0, 0, 255), VISUAL)
+		CVar( TeamRed, Color_t( 225, 60, 60, 255 ), VISUAL )
+		CVar( TeamRedName, Color_t( 225, 60, 60, 255 ), VISUAL )
+		CVar( TeamBlu, Color_t( 75, 175, 225, 255 ), VISUAL )
+		CVar( TeamBluName, Color_t( 75, 175, 225, 255 ), VISUAL )
+		CVar( Enemy, Color_t( 225, 60, 60, 255 ), VISUAL )
+		CVar( EnemyName, Color_t( 225, 60, 60, 255 ), VISUAL )
+		CVar( Team, Color_t( 75, 175, 225, 255 ), VISUAL )
+		CVar( TeamName, Color_t( 75, 175, 225, 255 ), VISUAL )
+		CVar( Local, Color_t( 255, 255, 255, 255 ), VISUAL )
+		CVar( LocalName, Color_t( 255, 255, 255, 255 ), VISUAL )
+		CVar( Target, Color_t( 255, 0, 0, 255 ), VISUAL )
+		CVar( TargetName, Color_t( 255, 0, 0, 255 ), VISUAL )
+		CVar( Friend, Color_t( 255, 0, 0, 255 ), VISUAL )
+		CVar( FriendName, Color_t( 255, 0, 0, 255 ), VISUAL )
 		CVar(Health, Color_t(0, 225, 75, 255), VISUAL)
 		CVar(Ammo, Color_t(127, 127, 127, 255), VISUAL)
 		CVar(Money, Color_t(0, 150, 75, 255), VISUAL)
@@ -189,10 +218,10 @@ namespace Vars
 
 	NAMESPACE_BEGIN(Aimbot)
 		SUBNAMESPACE_BEGIN(General)
-			CVarEnum(AimType, 0, NONE, Off, Plain, Smooth, Silent, Locking, Assistive)
-			CVarEnum(TargetSelection, 0, NONE, FOV, Distance)
-			CVarEnum(Target, 0b0000001, NONE, Players = 1 << 0, Sentry = 1 << 1, Dispenser = 1 << 2, Teleporter = 1 << 3, Stickies = 1 << 4, NPCs = 1 << 5, Bombs = 1 << 6)
-			CVarEnum(Ignore, 0b000000000, NONE, Friends = 1 << 0, Party = 1 << 1, Invulnerable = 1 << 2, Cloaked = 1 << 3, Unsimulated = 1 << 4, DeadRinger = 1 << 5, Vaccinator = 1 << 6, Disguised = 1 << 7, Taunting = 1 << 8)
+			CVarEnum(AimType, 0, NONE, VA_LIST( { "Off", "Plain", "Smooth", "Silent", "Locking", "Assistive" } ), Off, Plain, Smooth, Silent, Locking, Assistive)
+			CVarEnum(TargetSelection, 0, NONE, VA_LIST( { "FOV", "Distance" } ), FOV, Distance)
+			CVarEnum(Target, 0b0000001, MULTI, VA_LIST( { "Players", "Sentries", "Dispensers", "Teleporters", "Stickies", "NPCs", "Bombs" } ), Players = 1 << 0, Sentry = 1 << 1, Dispenser = 1 << 2, Teleporter = 1 << 3, Stickies = 1 << 4, NPCs = 1 << 5, Bombs = 1 << 6)
+			CVarEnum(Ignore, 0b000000000, MULTI, VA_LIST( { "Friends", "Party", "Invulnerable", "Cloaked", "Unsimulated players", "Dead Ringer", "Vaccinator", "Disguised", "Taunting" } ), Friends = 1 << 0, Party = 1 << 1, Invulnerable = 1 << 2, Cloaked = 1 << 3, Unsimulated = 1 << 4, DeadRinger = 1 << 5, Vaccinator = 1 << 6, Disguised = 1 << 7, Taunting = 1 << 8)
 			CVar(AimFOV, 30.f)
 			CVar(MaxTargets, 2)
 			CVar(AssistStrength, 25.f)
@@ -208,12 +237,12 @@ namespace Vars
 			CVar(NoSpreadAverage, 5, DEBUGVAR)
 			CVar(NoSpreadInterval, 0.1f, DEBUGVAR)
 			CVar(NoSpreadBackupInterval, 2.f, DEBUGVAR)
-			CVarEnum(AimHoldsFire, 2, DEBUGVAR, False, MinigunOnly, Always)
+			CVarEnum(AimHoldsFire, 2, DEBUGVAR, VA_LIST( { "False", "Minigun only", "Always" } ), False, MinigunOnly, Always)
 		SUBNAMESPACE_END(Global)
 
 		SUBNAMESPACE_BEGIN(Hitscan)
-			CVarEnum(Hitboxes, 0b000111, NONE, Head = 1 << 0, Body = 1 << 1, Pelvis = 1 << 2, Arms = 1 << 3, Legs = 1 << 4, BodyaimIfLethal = 1 << 5)
-			CVarEnum(Modifiers, 0b0100000, NONE, Tapfire = 1 << 0, WaitForHeadshot = 1 << 1, WaitForCharge = 1 << 2, ScopedOnly = 1 << 3, AutoScope = 1 << 4, AutoRev = 1 << 5, ExtinguishTeam = 1 << 6)
+			CVarEnum(Hitboxes, 0b000111, MULTI, VA_LIST( { "Head", "Body", "Pelvis", "Arms", "Legs", "Bodyaim if lethal" } ), Head = 1 << 0, Body = 1 << 1, Pelvis = 1 << 2, Arms = 1 << 3, Legs = 1 << 4, BodyaimIfLethal = 1 << 5)
+			CVarEnum(Modifiers, 0b0100000, MULTI, VA_LIST( { "Tapfire", "Wait for headshot", "Wait for charge", "Scoped only", "Auto scope", "Auto rev minigun", "Extinguish team" } ), Tapfire = 1 << 0, WaitForHeadshot = 1 << 1, WaitForCharge = 1 << 2, ScopedOnly = 1 << 3, AutoScope = 1 << 4, AutoRev = 1 << 5, ExtinguishTeam = 1 << 6)
 			CVar(PointScale, 0.f)
 			CVar(TapFireDist, 1000.f)
 
@@ -222,12 +251,12 @@ namespace Vars
 		SUBNAMESPACE_END(HITSCAN)
 
 		SUBNAMESPACE_BEGIN(Projectile)
-			CVarEnum(StrafePrediction, 0b11, NONE, Air = 1 << 0, Ground = 1 << 1)
-			CVarEnum(SplashPrediction, 0, NONE, Off, Include, Prefer, Only)
-			CVarEnum(AutoDetonate, 0b00, NONE, Stickies = 1 << 0, Flares = 1 << 1, PreventSelfDamage = 1 << 2, IgnoreCloak = 1 << 3)
-			CVarEnum(AutoAirblast, 0b1000, NONE, Enabled = 1 << 0, RedirectSimple = 1 << 1, RedirectAdvanced = 1 << 2, RespectFOV = 1 << 3)
-			CVarEnum(Hitboxes, 0b001111, NONE, Auto = 1 << 0, Head = 1 << 1, Body = 1 << 2, Feet = 1 << 3, BodyaimIfLethal = 1 << 4, AimBlastAtFeet = 1 << 5)
-			CVarEnum(Modifiers, 0b1010, NONE, ChargeWeapon = 1 << 0, CancelCharge = 1 << 1, UsePrimeTime = 1 << 2)
+			CVarEnum(StrafePrediction, 0b11, MULTI, VA_LIST( { "Air", "Ground" } ), Air = 1 << 0, Ground = 1 << 1)
+			CVarEnum(SplashPrediction, 0, NONE, VA_LIST( { "Off", "Include", "Prefer", "Only" } ), Off, Include, Prefer, Only)
+			CVarEnum(AutoDetonate, 0b00, MULTI, VA_LIST( { "Stickies", "Flares", "Prevent self damage", "Ignore cloak" } ), Stickies = 1 << 0, Flares = 1 << 1, PreventSelfDamage = 1 << 2, IgnoreCloak = 1 << 3)
+			CVarEnum(AutoAirblast, 0b1000, MULTI, VA_LIST( { "Enabled", "Redirect simple", "Redirect advanced", "Respect FOV" } ), Enabled = 1 << 0, RedirectSimple = 1 << 1, RedirectAdvanced = 1 << 2, RespectFOV = 1 << 3)
+			CVarEnum( Hitboxes, 0b001111, MULTI, VA_LIST( { "Auto", "##Divider", "Head", "Body", "Feet", "##Divider", "Bodyaim if lethal", "Aim blast at feet" } ), Auto = 1 << 0, Head = 1 << 1, Body = 1 << 2, Feet = 1 << 3, BodyaimIfLethal = 1 << 4, AimBlastAtFeet = 1 << 5 )
+			CVarEnum(Modifiers, 0b1010, MULTI, VA_LIST( { "Charge shot", "Cancel charge", "Use prime time" } ), ChargeWeapon = 1 << 0, CancelCharge = 1 << 1, UsePrimeTime = 1 << 2)
 			CVar(PredictionTime, 2.f)
 			CVar(Hitchance, 0.f)
 			CVar(AutodetRadius, 90.f)
@@ -237,6 +266,7 @@ namespace Vars
 			CVar(GroundSamples, 33, DEBUGVAR)
 			CVar(GroundStraightFuzzyValue, 100.f, DEBUGVAR)
 			CVar(GroundLowMinimumSamples, 16, DEBUGVAR)
+
 			CVar(GroundHighMinimumSamples, 33, DEBUGVAR)
 			CVar(GroundLowMinimumDistance, 0.f, DEBUGVAR)
 			CVar(GroundHighMinimumDistance, 1000.f, DEBUGVAR)
@@ -261,6 +291,7 @@ namespace Vars
 			CVar(HuntsmanAdd, 0.f, DEBUGVAR)
 			CVar(HuntsmanAddLow, 0.f, DEBUGVAR)
 			CVar(HuntsmanClamp, 5.f, DEBUGVAR)
+
 			CVar(HuntsmanPullPoint, false, DEBUGVAR)
 			CVar(SplashPoints, 100, DEBUGVAR)
 			CVar(SplashGrates, true, DEBUGVAR)
@@ -268,13 +299,13 @@ namespace Vars
 			CVar(SplashRotateY, 0.f, DEBUGVAR)
 			CVar(SplashNthRoot, 1.f, DEBUGVAR)
 			CVar(SplashCountDirect, 100, DEBUGVAR)
-			CVar(SplashCountArc, 5, DEBUGVAR)
+			CVar(SplashCountArc, 100, DEBUGVAR)
 			CVar(SplashTraceInterval, 10, DEBUGVAR)
-			CVarEnum(SplashMode, 0, DEBUGVAR, Multi, Single)
-			CVarEnum(RocketSplashMode, 0, DEBUGVAR, Regular, SpecialLight, SpecialHeavy)
+			CVarEnum(SplashMode, 0, DEBUGVAR, VA_LIST( { "Multi", "Single" } ), Multi, Single)
+			CVarEnum(RocketSplashMode, 0, DEBUGVAR, VA_LIST( { "Regular", "Special light", "Special heavy" } ), Regular, SpecialLight, SpecialHeavy)
 			CVar(DeltaCount, 5, DEBUGVAR)
-			CVarEnum(DeltaMode, 0, DEBUGVAR, Average, Max)
-			CVarEnum(MovesimFrictionFlags, 0b01, DEBUGVAR, RunReduce = 1 << 0, CalculateIncrease = 1 << 1)
+			CVarEnum(DeltaMode, 0, DEBUGVAR, VA_LIST( { "Average", "Max" } ), Average, Max)
+			CVarEnum(MovesimFrictionFlags, 0b01, DEBUGVAR | MULTI, VA_LIST( { "Run Reduce", "Calculate Increase" } ), RunReduce = 1 << 0, CalculateIncrease = 1 << 1)
 		SUBNAMESPACE_END(Projectile)
 
 		SUBNAMESPACE_BEGIN(Melee)
@@ -325,10 +356,10 @@ namespace Vars
 		SUBNAMESPACE_END(DoubleTap)
 
 		SUBNAMESPACE_BEGIN(Fakelag)
-			CVarEnum(Fakelag, 0, NONE, Off, Plain, Random, Adaptive)
+			CVarEnum(Fakelag, 0, NONE, VA_LIST( { "Off", "Plain", "Random", "Adaptive" } ), Off, Plain, Random, Adaptive)
 			CVar(PlainTicks, 12)
 			CVar(RandomTicks, IntRange_t(14, 18));
-			CVarEnum(Options, 0b000, NONE, WhileMoving = 1 << 0, WhileUnducking = 1 << 1, WhileAirborne = 1 << 2)
+			CVarEnum(Options, 0b000, MULTI, VA_LIST( { "Only moving", "On unduck", "Not airborne" } ), WhileMoving = 1 << 0, WhileUnducking = 1 << 1, WhileAirborne = 1 << 2)
 			CVar(UnchokeOnAttack, true)
 			CVar(RetainBlastJump, false)
 
@@ -344,8 +375,8 @@ namespace Vars
 	NAMESPACE_BEGIN(AntiHack)
 		SUBNAMESPACE_BEGIN(AntiAim)
 			CVar(Enabled, false)
-			CVarEnum(PitchReal, 0, NONE, None, Up, Down, Zero, Jitter, ReverseJitter)
-			CVarEnum(PitchFake, 0, NONE, None, Up, Down, Jitter, ReverseJitter)
+			CVarEnum(PitchReal, 0, NONE, VA_LIST( { "None", "Up", "Down", "Zero", "Jitter", "Reverse jitter" } ), None, Up, Down, Zero, Jitter, ReverseJitter)
+			CVarEnum(PitchFake, 0, NONE, VA_LIST( { "None", "Up", "Down", "Jitter", "Reverse jitter" } ), None, Up, Down, Jitter, ReverseJitter)
 			Enum(Yaw, Forward, Left, Right, Backwards, Edge, Jitter, Spin)
 			CVar(YawReal, 0)
 			CVar(YawFake, 0)
@@ -377,7 +408,7 @@ namespace Vars
 	NAMESPACE_END(AntiHack)
 
 	NAMESPACE_BEGIN(CheaterDetection)
-		CVarEnum(Methods, 0b0001, NONE, InvalidPitch = 1 << 0, PacketChoking = 1 << 1, AimFlicking = 1 << 2, DuckSpeed = 1 << 3)
+		CVarEnum(Methods, 0b0001, MULTI, VA_LIST( { "Invalid pitch", "Packet choking", "Aim flicking", "Duck Speed" } ), InvalidPitch = 1 << 0, PacketChoking = 1 << 1, AimFlicking = 1 << 2, DuckSpeed = 1 << 3)
 		CVar(DetectionsRequired, 10)
 		CVar(MinimumChoking, 20)
 		CVar(MinimumFlick, 20.f) // min flick size to suspect
@@ -385,12 +416,11 @@ namespace Vars
 	NAMESPACE_END(CheaterDetection)
 
 	NAMESPACE_BEGIN(ESP)
-		CVarEnum(Draw, 0b0, VISUAL, Players = 1 << 0, Buildings = 1 << 1, Projectiles = 1 << 2, Objective = 1 << 3, NPCs = 1 << 4, Health = 1 << 5, Ammo = 1 << 6, Money = 1 << 7, Powerups = 1 << 8, Bombs = 1 << 9, Spellbook = 1 << 10, Gargoyle = 1 << 11)
-		CVarEnum(Player, 0b0, VISUAL, Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, Bones = 1 << 9, HealthBar = 1 << 10, HealthText = 1 << 11, UberBar = 1 << 12, UberText = 1 << 13, ClassIcon = 1 << 14, ClassText = 1 << 15, WeaponIcon = 1 << 16, WeaponText = 1 << 17, Priority = 1 << 18, Labels = 1 << 19, Buffs = 1 << 20, Debuffs = 1 << 21, Misc = 1 << 22, LagCompensation = 1 << 23, Ping = 1 << 24, KDR = 1 << 25)
-		CVarEnum(Building, 0b0, VISUAL, Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, HealthBar = 1 << 9, HealthText = 1 << 10, Owner = 1 << 11, Level = 1 << 12, Flags = 1 << 13)
-		CVarEnum(Projectile, 0b0, VISUAL, Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, Owner = 1 << 9, Flags = 1 << 10)
-		CVarEnum(Objective, 0b0, VISUAL, Enemy = 1 << 0, Team = 1 << 1, Name = 1 << 2, Box = 1 << 3, Distance = 1 << 4, Flags = 1 << 5, IntelReturnTime = 1 << 6)
-
+		CVarEnum(Draw, 0b0, VISUAL | MULTI, VA_LIST( { "Players", "Buildings", "Projectiles", "Objective", "NPCs", "Health", "Ammo", "Money", "Powerups", "Bombs", "Spellbook", "Gargoyle" } ), Players = 1 << 0, Buildings = 1 << 1, Projectiles = 1 << 2, Objective = 1 << 3, NPCs = 1 << 4, Health = 1 << 5, Ammo = 1 << 6, Money = 1 << 7, Powerups = 1 << 8, Bombs = 1 << 9, Spellbook = 1 << 10, Gargoyle = 1 << 11)
+		CVarEnum(Player, 0b0, VISUAL | MULTI, VA_LIST( { "Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Box", "Distance", "Bones", "Health bar", "Health text", "Uber bar", "Uber text", "Class icon", "Class text", "Weapon icon", "Weapon text", "Priority", "Labels", "Buffs", "Debuffs", "Misc", "Lag compensation", "Ping", "KDR" } ), Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, Bones = 1 << 9, HealthBar = 1 << 10, HealthText = 1 << 11, UberBar = 1 << 12, UberText = 1 << 13, ClassIcon = 1 << 14, ClassText = 1 << 15, WeaponIcon = 1 << 16, WeaponText = 1 << 17, Priority = 1 << 18, Labels = 1 << 19, Buffs = 1 << 20, Debuffs = 1 << 21, Misc = 1 << 22, LagCompensation = 1 << 23, Ping = 1 << 24, KDR = 1 << 25)
+		CVarEnum(Building, 0b0, VISUAL | MULTI, VA_LIST( { "Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Box", "Distance", "Health bar", "Health text", "Owner", "Level", "Flags" } ), Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, HealthBar = 1 << 9, HealthText = 1 << 10, Owner = 1 << 11, Level = 1 << 12, Flags = 1 << 13)
+		CVarEnum(Projectile, 0b0, VISUAL | MULTI, VA_LIST( { "Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Box", "Distance", "Owner", "Flags" } ), Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, Owner = 1 << 9, Flags = 1 << 10)
+		CVarEnum(Objective, 0b0, VISUAL | MULTI, VA_LIST( { "Enemy", "Team", "##Divider", "Name", "Box", "Distance", "Flags", "Intel return time" } ), Enemy = 1 << 0, Team = 1 << 1, Name = 1 << 2, Box = 1 << 3, Distance = 1 << 4, Flags = 1 << 5, IntelReturnTime = 1 << 6)
 		CVar(ActiveAlpha, 255, VISUAL)
 		CVar(DormantAlpha, 50, VISUAL)
 		CVar(DormantPriority, false, VISUAL)
@@ -445,8 +475,8 @@ namespace Vars
 		SUBNAMESPACE_BEGIN(Backtrack)
 			CVar(Enabled, false, VISUAL)
 			CVar(IgnoreZ, false, VISUAL)
-			CVarEnum(Draw, 0b0001, VISUAL, Last = 1 << 0, First = 1 << 1, Always = 1 << 2, IgnoreTeam = 1 << 3)
-				
+			CVarEnum(Draw, 0b0001, VISUAL | MULTI, VA_LIST( { "Last", "Last + first", "All", "Ignore Team" } ), 
+					  Last = 1 << 0, First = 1 << 1, Always = 1 << 2, IgnoreTeam = 1 << 3 )
 			CVar(Visible, VA_LIST(std::vector<std::pair<std::string, Color_t>>) VA_LIST({ { "Original", {} } }), VISUAL)
 			//CVar(Occluded, VA_LIST(std::vector<std::pair<std::string, Color_t>>) {}, VISUAL) // unused
 		SUBNAMESPACE_END(Backtrack)
@@ -514,7 +544,8 @@ namespace Vars
 
 		SUBNAMESPACE_BEGIN(Backtrack)
 			CVar(Enabled, false, VISUAL)
-			CVarEnum(Draw, 0b0001, VISUAL, Last = 1 << 0, First = 1 << 1, Always = 1 << 2, IgnoreTeam = 1 << 3)
+			CVarEnum( Draw, 0b0001, VISUAL | MULTI, VA_LIST( { "Last", "Last + first", "All", "Ignore Team" } ),
+					Last = 1 << 0, First = 1 << 1, Always = 1 << 2, IgnoreTeam = 1 << 3 )
 				
 			CVar(Stencil, 1, VISUAL)
 			CVar(Blur, 0, VISUAL)
@@ -551,8 +582,8 @@ namespace Vars
 		SUBNAMESPACE_END(Removals)
 
 		SUBNAMESPACE_BEGIN(UI)
-			CVarEnum(StreamerMode, 0, VISUAL, Off, Local, Friends, Party, All)
-			CVarEnum(ChatTags, 0b000, VISUAL, Local = 1 << 0, Friends = 1 << 1, Party = 1 << 2, Assigned = 1 << 3)
+			CVarEnum(StreamerMode, 0, VISUAL, VA_LIST( { "Off", "Local", "Friends", "Party", "All" } ), Off, Local, Friends, Party, All)
+			CVarEnum(ChatTags, 0b000, VISUAL | MULTI, VA_LIST( { "Local", "Friends", "Party", "Assigned" } ), Local = 1 << 0, Friends = 1 << 1, Party = 1 << 2, Assigned = 1 << 3)
 			CVar(FieldOfView, 0.f, VISUAL)
 			CVar(ZoomFieldOfView, 0.f, VISUAL)
 			CVar(AspectRatio, 0.f, VISUAL)
@@ -584,7 +615,7 @@ namespace Vars
 			CVar(MedigunBeam, std::string("Off"), VISUAL)
 			CVar(MedigunCharge, std::string("Off"), VISUAL)
 			CVar(ProjectileTrail, std::string("Off"), VISUAL)
-			CVarEnum(SpellFootsteps, 0, VISUAL, Off, Color, Team, Halloween)
+			CVarEnum(SpellFootsteps, 0, VISUAL, VA_LIST( { "Off", "Color", "Team", "Halloween" } ), Off, Color, Team, Halloween)
 			CVar(DrawIconsThroughWalls, false, VISUAL)
 			CVar(DrawDamageNumbersThroughWalls, false, VISUAL)
 		SUBNAMESPACE_END(Tracers)
@@ -600,7 +631,7 @@ namespace Vars
 			CVar(Amplitude, 2.f, VISUAL)
 			CVar(Brightness, 255.f, VISUAL)
 			CVar(Speed, 0.2f, VISUAL)
-			CVar(Flags, 0b10000000100000000, VISUAL) // { Reverse, Halobeam, Forever, Is active, End visible, Start visible, Use hitboxes, No tile, Only noise once, Shade out, Shade in, Solid, Sine noise, Fade out, Fade in, End entity, Start entity }
+			CVar(Flags, 0b10000000100000000, VISUAL | MULTI ) // { Reverse, Halobeam, Forever, Is active, End visible, Start visible, Use hitboxes, No tile, Only noise once, Shade out, Shade in, Solid, Sine noise, Fade out, Fade in, End entity, Start entity }
 			CVar(Segments, 2, VISUAL)
 		SUBNAMESPACE_END(Beams)
 
@@ -609,8 +640,8 @@ namespace Vars
 			CVar(NoGib, false, VISUAL)
 			CVar(Enabled, false, VISUAL)
 			CVar(EnemyOnly, false, VISUAL)
-			CVarEnum(Effects, 0b0000, VISUAL, Burning = 1 << 0, Electrocuted = 1 << 1, Ash = 1 << 2, Dissolve = 1 << 3)
-			CVarEnum(Type, 0, VISUAL, None, Gold, Ice)
+			CVarEnum(Effects, 0b0000, VISUAL | MULTI, VA_LIST( { "Burning", "Electrocuted", "Ash", "Dissolve" } ), Burning = 1 << 0, Electrocuted = 1 << 1, Ash = 1 << 2, Dissolve = 1 << 3)
+			CVarEnum(Type, 0, VISUAL, VA_LIST( { "None", "Gold", "Ice" } ), None, Gold, Ice)
 			CVar(Force, 1.f, VISUAL)
 			CVar(ForceHorizontal, 1.f, VISUAL)
 			CVar(ForceVertical, 1.f, VISUAL)
@@ -622,20 +653,21 @@ namespace Vars
 		SUBNAMESPACE_END(Line)
 
 		SUBNAMESPACE_BEGIN(Simulation)
-			Enum(Style, Off, Line, Separators, Spaced, Arrows, Boxes);
-			CVar(PlayerPath, 0, VISUAL)
-			CVar(ProjectilePath, 0, VISUAL)
-			CVar(TrajectoryPath, 0, VISUAL)
-			CVar(ShotPath, 0, VISUAL)
-			CVarEnum(SplashRadius, 0b0, VISUAL, Simulation = 1 << 0, Priority = 1 << 1, Enemy = 1 << 2, Team = 1 << 3, Local = 1 << 4, Friends = 1 << 5, Party = 1 << 6, Rockets = 1 << 7, Stickies = 1 << 8, Pipes = 1 << 9, ScorchShot = 1 << 10, Trace = 1 << 11)
+			Enum(Style, Off, Line, Separators, Spaced, Arrows, Boxes, Nitro);
+			CVar(PlayerPath, 0, VA_LIST( { "Off", "Line", "Separators", "Spaced", "Arrows", "Boxes", "Nitro" } ), VISUAL)
+			CVar(ProjectilePath, 0, VA_LIST( { "Off", "Line", "Separators", "Spaced", "Arrows", "Boxes", "Nitro" } ), VISUAL)
+			CVar(TrajectoryPath, 0, VA_LIST( { "Off", "Line", "Separators", "Spaced", "Arrows", "Boxes", "Nitro" } ), VISUAL)
+			CVar(ShotPath, 0, VA_LIST( { "Off", "Line", "Separators", "Spaced", "Arrows", "Boxes", "Nitro" } ), VISUAL)
+			CVarEnum(SplashRadius, 0b0, VISUAL | MULTI, VA_LIST( { "Simulation", "##Divider", "Priority", "Enemy", "Team", "Local", "Friends", "Party", "##Divider", "Rockets", "Stickies", "Pipes", "Scorch shot", "##Divider", "Trace" } ), Simulation = 1 << 0, Priority = 1 << 1, Enemy = 1 << 2, Team = 1 << 3, Local = 1 << 4, Friends = 1 << 5, Party = 1 << 6, Rockets = 1 << 7, Stickies = 1 << 8, Pipes = 1 << 9, ScorchShot = 1 << 10, Trace = 1 << 11)
 			CVar(Timed, false, VISUAL)
 			CVar(Box, true, VISUAL)
 			CVar(ProjectileCamera, false, VISUAL)
 			CVar(ProjectileWindow, WindowBox_t(), NOBIND)
 			CVar(SwingLines, false, VISUAL)
 			CVar(DrawDuration, 5.f, VISUAL)
-			CVar(SeparatorSpacing, 4, DEBUGVAR)
-			CVar(SeparatorLength, 12, DEBUGVAR)
+			CVar(SeparatorSpacing, 4)
+			CVar(SeparatorLength, 12)
+
 		SUBNAMESPACE_END(ProjectileTrajectory)
 
 		SUBNAMESPACE_BEGIN(Trajectory)
@@ -655,7 +687,7 @@ namespace Vars
 			CVar(AngVelocityZ, 0.f, DEBUGVAR)
 			CVar(Drag, 1.f, DEBUGVAR)
 			CVar(DragBasisX, 0.003902f, DEBUGVAR)
-			CVar(DragBasisY, 0.009962f, DEBUGVAR)
+			CVar(DragBasisY, 0.009962f, DEBUGVAR) 
 			CVar(DragBasisZ, 0.009962f, DEBUGVAR)
 			CVar(AngDragBasisX, 0.003618f, DEBUGVAR)
 			CVar(AngDragBasisY, 0.001514f, DEBUGVAR)
@@ -665,8 +697,8 @@ namespace Vars
 		SUBNAMESPACE_END(ProjectileTrajectory)
 
 		SUBNAMESPACE_BEGIN(Hitbox)
-			CVarEnum(BonesEnabled, 0b00, VISUAL, OnShot = 1 << 0, OnHit = 1 << 1)
-			CVarEnum(BoundsEnabled, 0b000, VISUAL, OnShot = 1 << 0, OnHit = 1 << 1, AimPoint = 1 << 2)
+			CVarEnum(BonesEnabled, 0b00, VISUAL | MULTI, VA_LIST( { "On shot", "On hit" } ), OnShot = 1 << 0, OnHit = 1 << 1)
+			CVarEnum(BoundsEnabled, 0b000, VISUAL | MULTI, VA_LIST( { "On shot", "On hit", "Aim point" } ), OnShot = 1 << 0, OnHit = 1 << 1, AimPoint = 1 << 2)
 			CVar(DrawDuration, 5.f, VISUAL)
 		SUBNAMESPACE_END(Hitbox)
 
@@ -687,7 +719,7 @@ namespace Vars
 		SUBNAMESPACE_END(Arrows)
 
 		SUBNAMESPACE_BEGIN(World)
-			CVarEnum(Modulations, 0b00000, VISUAL, World = 1 << 0, Sky = 1 << 1, Prop = 1 << 2, Particle = 1 << 3, Fog = 1 << 4)
+			CVarEnum(Modulations, 0b00000, VISUAL | MULTI, VA_LIST( { "World", "Sky", "Prop", "Particle", "Fog" } ), World = 1 << 0, Sky = 1 << 1, Prop = 1 << 2, Particle = 1 << 3, Fog = 1 << 4)
 			CVar(SkyboxChanger, std::string("Off"), VISUAL)
 			CVar(WorldTexture, std::string("Default"), VISUAL)
 			CVar(NearPropFade, false, VISUAL)
@@ -706,7 +738,7 @@ namespace Vars
 		SUBNAMESPACE_BEGIN(Main)
 			CVar(Enabled, false, VISUAL)
 			CVar(AlwaysDraw, true, VISUAL)
-			CVarEnum(Style, 0, VISUAL, Circle, Rectangle)
+			CVarEnum(Style, 0, VISUAL, VA_LIST( { "Circle", "Rectangle" } ), Circle, Rectangle)
 			CVar(Window, WindowBox_t(), NOBIND)
 			CVar(Range, 1500, VISUAL)
 			CVar(BackAlpha, 128, VISUAL)
@@ -716,8 +748,8 @@ namespace Vars
 		SUBNAMESPACE_BEGIN(Players)
 			CVar(Enabled, false, VISUAL)
 			CVar(Background, true, VISUAL)
-			CVarEnum(Draw, 0b1001010, VISUAL, Local = 1 << 0, Enemy = 1 << 1, Team = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Cloaked = 1 << 6)
-			CVarEnum(IconType, 1, VISUAL, Icons, Portraits, Avatars)
+			CVarEnum(Draw, 0b1001010, VISUAL | MULTI, VA_LIST( { "Local", "Enemy", "Team", "Friends", "Party", "Prioritized", "Cloaked" } ), Local = 1 << 0, Enemy = 1 << 1, Team = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Cloaked = 1 << 6)
+			CVarEnum(IconType, 1, VISUAL, VA_LIST( { "Icons", "Portraits", "Avatar" } ), Icons, Portraits, Avatars)
 			CVar(IconSize, 24, VISUAL)
 			CVar(Health, false, VISUAL)
 			CVar(Height, false, VISUAL)
@@ -726,7 +758,7 @@ namespace Vars
 		SUBNAMESPACE_BEGIN(Buildings)
 			CVar(Enabled, false, VISUAL)
 			CVar(Background, true, VISUAL)
-			CVarEnum(Draw, 0b001011, VISUAL, Local = 1 << 0, Enemy = 1 << 1, Team = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5)
+			CVarEnum(Draw, 0b001011, VISUAL | MULTI, VA_LIST( { "Local", "Enemy", "Team", "Friends", "Party", "Prioritized" } ), Local = 1 << 0, Enemy = 1 << 1, Team = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5)
 			CVar(Health, false, VISUAL)
 			CVar(IconSize, 18, VISUAL)
 		SUBNAMESPACE_END(Buildings)
@@ -734,14 +766,14 @@ namespace Vars
 		SUBNAMESPACE_BEGIN(World)
 			CVar(Enabled, false, VISUAL)
 			CVar(Background, true, VISUAL)
-			CVarEnum(Draw, 0b0000011, VISUAL, Health = 1 << 0, Ammo = 1 << 1, Money = 1 << 2, Bombs = 1 << 3, Powerup = 1 << 4, Spellbook = 1 << 5, Gargoyle = 1 << 6)
+			CVarEnum(Draw, 0b0000011, VISUAL | MULTI, VA_LIST( { "Health", "Ammo", "Money", "Bombs", "Powerup", "Spellbook", "Gargoyle" } ), Health = 1 << 0, Ammo = 1 << 1, Money = 1 << 2, Bombs = 1 << 3, Powerup = 1 << 4, Spellbook = 1 << 5, Gargoyle = 1 << 6)
 			CVar(IconSize, 14, VISUAL)
 		SUBNAMESPACE_END(World)
 	NAMESPACE_END(Radar)
 
 	NAMESPACE_BEGIN(Misc)
 		SUBNAMESPACE_BEGIN(Movement)
-			CVarEnum(AutoStrafe, 0, NONE, Off, Legit, Directional)
+			CVarEnum(AutoStrafe, 0, NONE, VA_LIST( { "Off", "Legit", "Directional" } ), Off, Legit, Directional)
 			CVar(AutoStrafeTurnScale, 0.5f)
 			CVar(AutoStrafeMaxDelta, 180.f)
 			CVar(Bunnyhop, false)
@@ -771,7 +803,7 @@ namespace Vars
 		SUBNAMESPACE_END(Exploits)
 
 		SUBNAMESPACE_BEGIN(Automation)
-			CVarEnum(AntiBackstab, 0, NONE, Off, Yaw, Pitch, Fake)
+			CVarEnum(AntiBackstab, 0, NONE, VA_LIST( { "Off", "Yaw", "Pitch", "Fake" } ), Off, Yaw, Pitch, Fake)
 			CVar(AntiAFK, false)
 			CVar(AntiAutobalance, false)
 			CVar(TauntControl, false)
@@ -783,7 +815,7 @@ namespace Vars
 		SUBNAMESPACE_END(Automation)
 
 		SUBNAMESPACE_BEGIN(Sound)
-			CVarEnum(Block, 0b0000, NONE, Footsteps = 1 << 0, Noisemaker = 1 << 1, FryingPan = 1 << 2, Water = 1 << 3)
+			CVarEnum(Block, 0b0000, MULTI, VA_LIST( { "Footsteps", "Noisemaker", "Frying pan", "Water" } ), Footsteps = 1 << 0, Noisemaker = 1 << 1, FryingPan = 1 << 2, Water = 1 << 3)
 			CVar(HitsoundAlways, false)
 			CVar(RemoveDSP, false)
 			CVar(GiantWeaponSounds, false)
@@ -799,7 +831,7 @@ namespace Vars
 		SUBNAMESPACE_END(Game)
 
 		SUBNAMESPACE_BEGIN(Queueing)
-			CVarEnum(ForceRegions, 0b0, NONE, // i'm not sure all of these are actually used for tf2 servers
+			CVarEnum(ForceRegions, 0b0, MULTI, VA_LIST( { "Atlanta", "Chicago", "Texas", "Los Angeles", "Moses Lake", "New York", "Seattle", "Virginia", "##Divider", "Amsterdam", "Frankfurt", "Helsinki", "London", "Madrid", "Paris", "Stockholm", "Vienna", "Warsaw", "##Divider", "Buenos Aires", "Lima", "Santiago", "Sao Paulo", "##Divider", "Bombay", "Chennai", "Dubai", "Hong Kong", "Madras", "Mumbai", "Seoul", "Singapore", "Tokyo", "Sydney", "##Divider", "Johannesburg" } ), // i'm not sure all of these are actually used for tf2 servers
 				// North America
 				DC_ATL = 1 << 0, // Atlanta
 				DC_ORD = 1 << 1, // Chicago
@@ -852,47 +884,47 @@ namespace Vars
 		SUBNAMESPACE_BEGIN(Steam)
 			CVar(EnableRPC, false)
 			CVar(OverrideMenu, false)
-			CVarEnum(MatchGroup, 0, NONE, SpecialEvent, MvMMannUp, Competitive, Casual, MvMBootCamp)
+			CVarEnum(MatchGroup, 0, NONE, VA_LIST( { "Special Event", "MvM Mann Up", "Competitive", "Casual", "MvM Boot Camp" } ), SpecialEvent, MvMMannUp, Competitive, Casual, MvMBootCamp)
 			CVar(MapText, std::string("Amalgam"))
 			CVar(GroupSize, 1337)
 		SUBNAMESPACE_END(Steam)
 	NAMESPACE_END(Misc)
 
 	NAMESPACE_BEGIN(Logging)
-		CVarEnum(Logs, 0b0000011, NONE, VoteStart = 1 << 0, VoteCast = 1 << 1, ClassChanges = 1 << 2, Damage = 1 << 3, CheatDetection = 1 << 4, Tags = 1 << 5, Aliases = 1 << 6, Resolver = 1 << 7)
+		CVarEnum(Logs, 0b0000011, MULTI, VA_LIST( { "Vote start", "Vote cast", "Class changes", "Damage", "Cheat detection", "Tags", "Aliases", "Resolver" } ), VoteStart = 1 << 0, VoteCast = 1 << 1, ClassChanges = 1 << 2, Damage = 1 << 3, CheatDetection = 1 << 4, Tags = 1 << 5, Aliases = 1 << 6, Resolver = 1 << 7)
 		Enum(LogTo, Toasts = 1 << 0, Chat = 1 << 1, Party = 1 << 2, Console = 1 << 3, Menu = 1 << 4, Debug = 1 << 5)
 		CVar(Lifetime, 5.f, VISUAL)
 
 		SUBNAMESPACE_BEGIN(VoteStart)
-			CVar(LogTo, 0b000001)
+			CVar(LogTo, 0b000001, VA_LIST( { "Toasts", "Chat", "Party", "Console", "Menu", "Debug" } ), MULTI )
 		SUBNAMESPACE_END(VoteStart)
 
 		SUBNAMESPACE_BEGIN(VoteCast)
-			CVar(LogTo, 0b000001)
+			CVar(LogTo, 0b000001, VA_LIST( { "Toasts", "Chat", "Party", "Console", "Menu", "Debug" } ), MULTI )
 		SUBNAMESPACE_END(VoteCast)
 
 		SUBNAMESPACE_BEGIN(ClassChange)
-			CVar(LogTo, 0b000001)
+			CVar(LogTo, 0b000001, VA_LIST( { "Toasts", "Chat", "Party", "Console", "Menu", "Debug" } ), MULTI )
 		SUBNAMESPACE_END(ClassChange)
 
 		SUBNAMESPACE_BEGIN(Damage)
-			CVar(LogTo, 0b000001)
+			CVar(LogTo, 0b000001, VA_LIST( { "Toasts", "Chat", "Party", "Console", "Menu", "Debug" } ), MULTI )
 		SUBNAMESPACE_END(Damage)
 
 		SUBNAMESPACE_BEGIN(CheatDetection)
-			CVar(LogTo, 0b000001)
+			CVar(LogTo, 0b000001, VA_LIST( { "Toasts", "Chat", "Party", "Console", "Menu", "Debug" } ), MULTI )
 		SUBNAMESPACE_END(CheatDetection)
 
 		SUBNAMESPACE_BEGIN(Tags)
-			CVar(LogTo, 0b000001)
+			CVar(LogTo, 0b000001, VA_LIST( { "Toasts", "Chat", "Party", "Console", "Menu", "Debug" } ), MULTI )
 		SUBNAMESPACE_END(Tags)
 
 		SUBNAMESPACE_BEGIN(Aliases)
-			CVar(LogTo, 0b000001)
+			CVar(LogTo, 0b000001, VA_LIST( { "Toasts", "Chat", "Party", "Console", "Menu", "Debug" } ), MULTI )
 		SUBNAMESPACE_END(Aliases)
 
 		SUBNAMESPACE_BEGIN(Resolver)
-			CVar(LogTo, 0b000001)
+			CVar(LogTo, 0b000001, VA_LIST( { "Toasts", "Chat", "Party", "Console", "Menu", "Debug" } ), MULTI )
 		SUBNAMESPACE_END(Resolver)
 	NAMESPACE_END(Logging)
 

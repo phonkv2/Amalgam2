@@ -114,7 +114,6 @@ void CBacktrack::UpdateDatagram()
 }
 
 
-
 std::deque<TickRecord>* CBacktrack::GetRecords(CBaseEntity* pEntity)
 {
 	if (!m_mRecords.contains(pEntity))

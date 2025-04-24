@@ -377,6 +377,15 @@ bool CConfigs::SaveConfig(const std::string& sConfigName, bool bNotify)
 	return true;
 }
 
+#define BINDGETVAR(x) if ( Var->m_iType == typeid( x ).hash_code( ) )\
+{\
+	if ( Var->As<x>( )->Map.contains( i ) )\
+	{\
+		Bind.m_pVar = Var;\
+		break;\
+	}\
+}
+
 bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 {
 	// Check if the config exists
@@ -474,6 +483,27 @@ bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 				else LoadMain(Gradient_t, varTree)
 				else LoadMain(DragBox_t, varTree)
 				else LoadMain(WindowBox_t, varTree)
+			}
+		}
+
+		//gay and retarded but necessary due to the way binds work
+		for ( int i = 0; i < F::Binds.m_vBinds.size( ); i++ )
+		{
+			auto& Bind = F::Binds.m_vBinds.at( i );
+			for ( auto Var : g_Vars )
+			{
+				BINDGETVAR( bool )
+				else BINDGETVAR( int )
+				else BINDGETVAR( float )
+				else BINDGETVAR( IntRange_t )
+				else BINDGETVAR( FloatRange_t )
+				else BINDGETVAR( std::string )
+				else BINDGETVAR( VA_LIST( std::vector<std::pair<std::string, Color_t>> ) )
+				else BINDGETVAR( Color_t )
+				else BINDGETVAR( Gradient_t )
+				else BINDGETVAR( Vec3 )
+				else BINDGETVAR( DragBox_t )
+				else BINDGETVAR( WindowBox_t )
 			}
 		}
 

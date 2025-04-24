@@ -2580,7 +2580,10 @@ namespace ImGui
 			if (iBind != DEFAULT_BIND && iBind < F::Binds.m_vBinds.size())
 				tBind = F::Binds.m_vBinds[iBind];
 			else
+			{
 				tBind = { sBind };
+				tBind.m_pVar = &var;
+			}
 			if (var.contains(iBind))
 				val = var[iBind];
 		}
@@ -2591,6 +2594,7 @@ namespace ImGui
 			{
 				iBind = int(F::Binds.m_vBinds.size());
 				tBind = { sBind };
+				tBind.m_pVar = &var;
 				tBind.m_vVars.push_back(&var);
 				F::Binds.AddBind(iBind, tBind);
 			}

@@ -80,7 +80,6 @@ void CCore::Load()
 	F::Materials.LoadMaterials();
 	U::ConVars.Initialize();
 	F::Commands.Initialize();
-
 	F::Configs.LoadConfig(F::Configs.m_sCurrentConfig, false);
 	F::Configs.m_bConfigLoaded = true;
 

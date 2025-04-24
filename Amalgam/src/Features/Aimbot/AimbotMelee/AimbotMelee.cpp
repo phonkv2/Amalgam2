@@ -110,8 +110,8 @@ int CAimbotMelee::GetSwingTime(CTFWeaponBase* pWeapon)
 }
 
 void CAimbotMelee::SimulatePlayers(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, std::vector<Target_t> vTargets,
-								   Vec3& vEyePos, std::unordered_map<int, std::deque<TickRecord>>& pRecordMap,
-								   std::unordered_map<int, std::deque<Vec3>>& mPaths)
+	Vec3& vEyePos, std::unordered_map<int, std::deque<TickRecord>>& pRecordMap,
+	std::unordered_map<int, std::deque<Vec3>>& mPaths)
 {
 	// swing prediction / auto warp
 	const int iSwingTicks = GetSwingTime(pWeapon);
@@ -452,7 +452,7 @@ void CAimbotMelee::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd
 
 	if (!F::Aimbot.m_bRunningSecondary && Vars::Aimbot::General::AimHoldsFire.Value == Vars::Aimbot::General::AimHoldsFireEnum::Always && !G::CanPrimaryAttack && G::LastUserCmd->buttons & IN_ATTACK && Vars::Aimbot::General::AimType.Value)
 		pCmd->buttons |= IN_ATTACK;
-	if (!Vars::Aimbot::General::AimType.Value || Vars::Aimbot::General::AimType.Value == Vars::Aimbot::General::AimTypeEnum::Silent && !G::CanPrimaryAttack && pWeapon->m_flSmackTime() < 0.f)
+	if (!Vars::Aimbot::General::AimType.Value)
 		return;
 
 	if (RunSapper(pLocal, pWeapon, pCmd))

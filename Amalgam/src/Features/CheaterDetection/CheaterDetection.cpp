@@ -5,7 +5,7 @@
 
 bool CCheaterDetection::ShouldScan()
 {
-	if (!Vars::CheaterDetection::Methods.Value || I::EngineClient->IsPlayingDemo())
+	if(!Vars::CheaterDetection::Methods.Value || I::EngineClient->IsPlayingDemo())
 		return false;
 
 	static float flOldTime = I::GlobalVars->curtime;

@@ -180,7 +180,7 @@ void CCritHack::GetTotalCrits(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 
 			if (!bRapidFire)
 				iTestShots++;
-			else 
+			else
 			{
 				flTickBase += std::ceilf(flFireRate / TICK_INTERVAL) * TICK_INTERVAL;
 				if (flTickBase >= flLastRapidFireCritCheckTime + 1.f || !i && flTestBucket == flBucketCap)
@@ -305,7 +305,7 @@ void CCritHack::Reset()
 	m_mStorage.clear();
 
 	m_iFillStart = 0;
-	
+
 	m_iCritDamage = 0;
 	m_iRangedDamage = 0;
 	m_iMeleeDamage = 0;
@@ -338,7 +338,7 @@ void CCritHack::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd)
 
 	if (pWeapon->GetWeaponID() == TF_WEAPON_MINIGUN && pCmd->buttons & IN_ATTACK)
 		pCmd->buttons &= ~IN_ATTACK2;
-	
+
 	bool bAttacking = G::Attacking /*== 1*/ || F::Ticks.m_bDoubletap || F::Ticks.m_bSpeedhack;
 	if (G::PrimaryWeaponType == EWeaponType::MELEE)
 	{

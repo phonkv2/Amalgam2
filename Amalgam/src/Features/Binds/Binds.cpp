@@ -152,7 +152,6 @@ void CBinds::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 			continue;
 
 		auto& tKey = tBind.m_tKeyStorage;
-
 		U::KeyHandler.StoreKey(tBind.m_iKey, &tKey);
 	}
 }
