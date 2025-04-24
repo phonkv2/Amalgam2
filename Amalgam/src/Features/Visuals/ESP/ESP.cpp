@@ -1,6 +1,7 @@
 #include "ESP.h"
 
 #include "../../Players/PlayerUtils.h"
+#include "../../Spectate/Spectate.h"
 #include "../../Simulation/MovementSimulation/MovementSimulation.h"
 
 MAKE_SIGNATURE(CTFPlayerSharedUtils_GetEconItemViewByLoadoutSlot, "client.dll", "48 89 6C 24 ? 56 41 54 41 55 41 56 41 57 48 83 EC", 0x0);
@@ -27,22 +28,34 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 	if (!(Vars::ESP::Draw.Value & Vars::ESP::DrawEnum::Players) || !Vars::ESP::Player.Value)
 		return;
 
+	auto pObserverTarget = pLocal->m_hObserverTarget( ).Get( );
+	int iObserverMode = pLocal->m_iObserverMode( );
+	if ( F::Spectate.m_iTarget != -1 )
+	{
+		pObserverTarget = F::Spectate.m_pTargetTarget;
+		iObserverMode = F::Spectate.m_iTargetMode;
+	}
+
 	auto pResource = H::Entities.GetPR();
 	for (auto pEntity : H::Entities.GetGroup(EGroupType::PLAYERS_ALL))
 	{
 		auto pPlayer = pEntity->As<CTFPlayer>();
 		int iIndex = pPlayer->entindex();
 
-		if (pLocal->m_iObserverMode() == OBS_MODE_FIRSTPERSON ? pLocal->m_hObserverTarget().Get() == pPlayer : iIndex == I::EngineClient->GetLocalPlayer())
+		bool bLocal = iIndex == I::EngineClient->GetLocalPlayer();
+		bool bSpectate = iObserverMode == OBS_MODE_FIRSTPERSON || iObserverMode == OBS_MODE_THIRDPERSON;
+		bool bTarget = bSpectate && pObserverTarget == pPlayer;
+
+		if (!pPlayer->IsAlive() || pPlayer->IsAGhost())
+			continue;
+
+		if (bLocal || bTarget)
 		{
 			if (!(Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Local) || !I::Input->CAM_IsThirdPerson())
 				continue;
 		}
 		else
 		{
-			if (!pPlayer->IsAlive() || pPlayer->IsAGhost())
-				continue;
-
 			if (pPlayer->IsDormant())
 			{
 				if (!H::Entities.GetDormancy(iIndex) || !Vars::ESP::DormantAlpha.Value
@@ -66,7 +79,7 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 		tCache.m_bBox = Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Box;
 		tCache.m_bBones = Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Bones;
 
-		if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Distance && pPlayer != pLocal)
+		if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Distance && !bLocal)
 		{
 			Vec3 vDelta = pPlayer->m_vecOrigin() - pLocal->m_vecOrigin();
 			tCache.m_vText.push_back({ ESPTextEnum::Bottom, std::format("[{:.0f}M]", vDelta.Length2D() / 41), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value });
@@ -1163,17 +1176,24 @@ void CESP::DrawWorld()
 	I::MatSystemSurface->DrawSetAlphaMultiplier(1.f);
 }
 
+Color_t CESP::GetColor(CTFPlayer* pLocal, CBaseEntity* pEntity)
+{
+	if (pEntity->entindex() == I::EngineClient->GetLocalPlayer())
+		return Vars::Colors::Local.Value;
+	if (pEntity->entindex() == G::AimTarget.m_iEntIndex)
+		return Vars::Colors::Target.Value;
+	return H::Color.GetTeamColor(pLocal->m_iTeamNum(), pEntity->m_iTeamNum(), Vars::Colors::Relative.Value);
+}
+
 bool CESP::GetDrawBounds(CBaseEntity* pEntity, float& x, float& y, float& w, float& h)
 {
-	auto& transform = const_cast<matrix3x4&>(pEntity->RenderableToWorldTransform());
-	if (pEntity->entindex() == I::EngineClient->GetLocalPlayer())
-	{
-		Math::AngleMatrix({ 0.f, I::EngineClient->GetViewAngles().y, 0.f }, transform);
-		Math::MatrixSetColumn(pEntity->GetAbsOrigin(), 3, transform);
-	}
+	Vec3 vOrigin = pEntity->GetAbsOrigin();
+	matrix3x4 mTransform = { { 1, 0, 0, vOrigin.x }, { 0, 1, 0, vOrigin.y }, { 0, 0, 1, vOrigin.z } };
+	//if (pEntity->entindex() == I::EngineClient->GetLocalPlayer())
+		Math::AngleMatrix({ 0.f, I::EngineClient->GetViewAngles().y, 0.f }, mTransform, false);
 
 	float flLeft, flRight, flTop, flBottom;
-	if (!SDK::IsOnScreen(pEntity, transform, &flLeft, &flRight, &flTop, &flBottom))
+	if (!SDK::IsOnScreen(pEntity, mTransform, &flLeft, &flRight, &flTop, &flBottom))
 		return false;
 
 	x = flLeft;
